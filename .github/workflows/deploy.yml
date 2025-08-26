@@ -40,6 +40,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Verify Docker availability
+        run: |
+          docker --version
+          docker buildx version
+          # Ensure linux/amd64 platform is available for Cloudflare Containers
+          docker buildx create --use --platform=linux/amd64 --name container-builder || true
+          docker buildx inspect --bootstrap
+
+      - name: Set Docker platform for Cloudflare Containers
+        run: echo "DOCKER_DEFAULT_PLATFORM=linux/amd64" >> $GITHUB_ENV
+
       - name: Set D1 environment variables
         id: set-d1-vars
         run: |
