@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
   "build:prod": "pnpm run opennext:build && wrangler deploy --dry-run --outdir=dist -e production",
-  "opennext:build": "SKIP_LINTER=true opennextjs-cloudflare build --skipWranglerConfigCheck",
+  "opennext:build": "SKIP_LINTER=false opennextjs-cloudflare build --skipWranglerConfigCheck",
     "build:analyze": "ANALYZE=true next build",
     "start": "next start",
     "lint": "next lint",

@@ -55,3 +55,4 @@ dist
 # markdown files
 *.md
 !README.md
+!SECURITY.md

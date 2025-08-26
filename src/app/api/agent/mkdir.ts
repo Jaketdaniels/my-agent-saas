@@ -1,9 +1,11 @@
 import type { Sandbox } from "@cloudflare/sandbox";
 import { errorResponse, jsonResponse, parseJsonBody } from "../http";
 
+type MkdirBody = { path?: string; recursive?: boolean };
+
 export async function createDirectory(sandbox: Sandbox<unknown>, request: Request) {
   try {
-    const body = await parseJsonBody(request);
+  const body = await parseJsonBody<MkdirBody>(request);
     const { path, recursive } = body;
 
     if (!path) {
@@ -18,8 +20,9 @@ export async function createDirectory(sandbox: Sandbox<unknown>, request: Reques
       recursive: recursive || false,
       timestamp: new Date().toISOString()
     });
-  } catch (error: any) {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     console.error("Error creating directory:", error);
-    return errorResponse(`Failed to create directory: ${error.message}`);
+    return errorResponse(`Failed to create directory: ${message}`);
   }
 }

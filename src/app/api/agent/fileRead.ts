@@ -1,9 +1,10 @@
 import type { Sandbox } from "@cloudflare/sandbox";
 import { errorResponse, jsonResponse, parseJsonBody } from "../http";
 
+type ReadFileBody = { path?: string; encoding?: 'utf8' | 'base64' };
 export async function readFile(sandbox: Sandbox<unknown>, request: Request) {
   try {
-    const body = await parseJsonBody(request);
+  const body = await parseJsonBody<ReadFileBody>(request);
     const { path, encoding } = body;
 
     if (!path) {
@@ -17,8 +18,9 @@ export async function readFile(sandbox: Sandbox<unknown>, request: Request) {
       content: result.content, // Extract the actual content string from the response
       timestamp: new Date().toISOString()
     });
-  } catch (error: any) {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     console.error("Error reading file:", error);
-    return errorResponse(`Failed to read file: ${error.message}`);
+    return errorResponse(`Failed to read file: ${message}`);
   }
 }

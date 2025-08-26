@@ -1,9 +1,10 @@
 import type { Sandbox } from "@cloudflare/sandbox";
 import { errorResponse, jsonResponse, parseJsonBody } from "../http";
 
+type RenameFileBody = { oldPath?: string; newPath?: string };
 export async function renameFile(sandbox: Sandbox<unknown>, request: Request) {
   try {
-    const body = await parseJsonBody(request);
+  const body = await parseJsonBody<RenameFileBody>(request);
     const { oldPath, newPath } = body;
 
     if (!oldPath || !newPath) {
@@ -18,8 +19,9 @@ export async function renameFile(sandbox: Sandbox<unknown>, request: Request) {
       newPath,
       timestamp: new Date().toISOString()
     });
-  } catch (error: any) {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     console.error("Error renaming file:", error);
-    return errorResponse(`Failed to rename file: ${error.message}`);
+    return errorResponse(`Failed to rename file: ${message}`);
   }
 }

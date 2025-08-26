@@ -1,5 +1,4 @@
-import type { Sandbox } from "@cloudflare/sandbox";
-import { parseSSEStream, type ExecEvent } from "@cloudflare/sandbox";
+import { parseSSEStream, type ExecEvent, type Sandbox } from "@cloudflare/sandbox";
 import { corsHeaders, errorResponse, parseJsonBody } from "../http";
 
 export async function executeCommandStream(sandbox: Sandbox<unknown>, request: Request) {
@@ -27,11 +26,12 @@ export async function executeCommandStream(sandbox: Sandbox<unknown>, request: R
                 // Forward each typed event as SSE
                 await writer.write(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
             }
-        } catch (error: any) {
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
             const errorEvent = {
                 type: 'error',
                 timestamp: new Date().toISOString(),
-                error: error.message
+                error: message
             };
             await writer.write(new TextEncoder().encode(`data: ${JSON.stringify(errorEvent)}\n\n`));
         } finally {

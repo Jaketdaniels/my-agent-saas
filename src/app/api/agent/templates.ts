@@ -32,9 +32,10 @@ export async function setupNextjs(sandbox: Sandbox<unknown>, request: Request) {
       previewUrl: preview.url,
       message: "Next.js project created and running!"
     });
-  } catch (error: any) {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     console.error("Error setting up Next.js:", error);
-    return errorResponse(`Failed to setup Next.js: ${error.message}`);
+    return errorResponse(`Failed to setup Next.js: ${message}`);
   }
 }
 
@@ -72,9 +73,10 @@ export async function setupReact(sandbox: Sandbox<unknown>, request: Request) {
       previewUrl: preview.url,
       message: "React project created and running!"
     });
-  } catch (error: any) {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     console.error("Error setting up React:", error);
-    return errorResponse(`Failed to setup React: ${error.message}`);
+    return errorResponse(`Failed to setup React: ${message}`);
   }
 }
 
@@ -111,9 +113,10 @@ export async function setupVue(sandbox: Sandbox<unknown>, request: Request) {
       previewUrl: preview.url,
       message: "Vue project created and running!"
     });
-  } catch (error: any) {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     console.error("Error setting up Vue:", error);
-    return errorResponse(`Failed to setup Vue: ${error.message}`);
+    return errorResponse(`Failed to setup Vue: ${message}`);
   }
 }
 
@@ -177,8 +180,9 @@ export async function setupStatic(sandbox: Sandbox<unknown>, request: Request) {
       previewUrl: preview.url,
       message: "Static site created and running!"
     });
-  } catch (error: any) {
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
     console.error("Error setting up static site:", error);
-    return errorResponse(`Failed to setup static site: ${error.message}`);
+    return errorResponse(`Failed to setup static site: ${message}`);
   }
 }

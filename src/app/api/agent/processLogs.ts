@@ -26,15 +26,24 @@ export async function streamProcessLogs(sandbox: Sandbox<unknown>, pathname: str
     }
 
     // Check if process exists first
-    if (typeof sandbox.getProcess === 'function') {
-        try {
-            const process = await sandbox.getProcess(processId);
-            if (!process) {
-                return errorResponse("Process not found", 404);
+    const ensureProcessExists = async () => {
+        if (typeof sandbox.getProcess === 'function') {
+            try {
+                const process = await sandbox.getProcess(processId);
+                if (!process) {
+                    return errorResponse("Process not found", 404);
+                }
+            } catch (error) {
+                const message = error instanceof Error ? error.message : String(error);
+                return errorResponse(`Failed to check process: ${message}`, 500);
             }
-        } catch (error: any) {
-            return errorResponse(`Failed to check process: ${error.message}`, 500);
         }
+        return null;
+    };
+
+    const precheck = await ensureProcessExists();
+    if (precheck) {
+        return precheck;
     }
 
     // Use the SDK's streaming with beautiful AsyncIterable API
@@ -56,12 +65,13 @@ export async function streamProcessLogs(sandbox: Sandbox<unknown>, pathname: str
                         // Forward each typed event as SSE
                         await writer.write(encoder.encode(`data: ${JSON.stringify(logEvent)}\n\n`));
                     }
-                } catch (error: any) {
+                } catch (error) {
+                    const message = error instanceof Error ? error.message : String(error);
                     // Send error event
                     await writer.write(encoder.encode(`data: ${JSON.stringify({
                         type: 'error',
                         timestamp: new Date().toISOString(),
-                        data: error.message,
+                        data: message,
                         processId
                     })}\n\n`));
                 } finally {
@@ -78,9 +88,10 @@ export async function streamProcessLogs(sandbox: Sandbox<unknown>, pathname: str
                     ...corsHeaders(),
                 },
             });
-        } catch (error: any) {
+        } catch (error) {
             console.error('Process log streaming error:', error);
-            return errorResponse(`Failed to stream process logs: ${error.message}`, 500);
+            const message = error instanceof Error ? error.message : String(error);
+            return errorResponse(`Failed to stream process logs: ${message}`, 500);
         }
     } else {
         return errorResponse("Process streaming not implemented in current SDK version", 501);

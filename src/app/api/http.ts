@@ -1,9 +1,9 @@
 // Helper to parse JSON body safely
-export async function parseJsonBody(request: Request): Promise<any> {
+export async function parseJsonBody<T = unknown>(request: Request): Promise<T> {
   try {
-    return await request.json();
-  } catch (error) {
-    return {};
+    return (await request.json()) as T;
+  } catch {
+    return {} as T;
   }
 }
 
@@ -25,7 +25,7 @@ export function errorResponse(message: string, status: number = 400) {
 }
 
 // Helper for success responses
-export function jsonResponse(data: any, status: number = 200) {
+export function jsonResponse<T>(data: T, status: number = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { "Content-Type": "application/json", ...corsHeaders() },

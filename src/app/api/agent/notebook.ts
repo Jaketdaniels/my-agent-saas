@@ -1,5 +1,5 @@
 import type { Sandbox } from "@cloudflare/sandbox";
-import { JupyterNotReadyError, isJupyterNotReadyError, isRetryableError } from "@cloudflare/sandbox";
+import { isJupyterNotReadyError, isRetryableError } from "@cloudflare/sandbox";
 import { corsHeaders, errorResponse, jsonResponse, parseJsonBody } from "../http";
 
 // Active sessions (in production, use Durable Objects or KV)
@@ -21,7 +21,7 @@ export async function createSession(sandbox: Sandbox, request: Request): Promise
     });
     
     return jsonResponse({ sessionId, language });
-  } catch (error: any) {
+  } catch (error) {
     // Handle Jupyter initialization timeout (request waited but Jupyter wasn't ready in time)
     if (isJupyterNotReadyError(error)) {
       console.log("[Notebook] Request timed out waiting for Jupyter initialization");
@@ -44,13 +44,15 @@ export async function createSession(sandbox: Sandbox, request: Request): Promise
     
     // Check if error is retryable
     if (isRetryableError(error)) {
-      console.log("[Notebook] Retryable error:", error.message);
-      return errorResponse(error.message, 503);
+      const message = error instanceof Error ? error.message : String(error);
+      console.log("[Notebook] Retryable error:", message);
+      return errorResponse(message, 503);
     }
     
     // Log actual errors
-    console.error("Create session error:", error);
-    return errorResponse(error.message || "Failed to create session", 500);
+  console.error("Create session error:", error);
+  const message = error instanceof Error ? error.message : "Failed to create session";
+  return errorResponse(message, 500);
   }
 }
 
@@ -75,7 +77,7 @@ export async function executeCell(sandbox: Sandbox, request: Request): Promise<R
     
     // Execute code with streaming
     const stream = await sandbox.runCodeStream(code, {
-      context: { id: session.contextId } as any,
+      context: { id: session.contextId },
       language: session.language as 'python' | 'javascript'
     });
     
@@ -88,7 +90,9 @@ export async function executeCell(sandbox: Sandbox, request: Request): Promise<R
         try {
           while (true) {
             const { done, value } = await reader.read();
-            if (done) break;
+            if (done) {
+              break;
+            }
             
             // Parse the JSON from the stream
             const text = new TextDecoder().decode(value);
@@ -99,7 +103,7 @@ export async function executeCell(sandbox: Sandbox, request: Request): Promise<R
                 const data = JSON.parse(line);
                 // Format as SSE
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
-              } catch (e) {
+              } catch {
                 // Skip invalid JSON
               }
             }
@@ -121,7 +125,7 @@ export async function executeCell(sandbox: Sandbox, request: Request): Promise<R
         ...corsHeaders()
       }
     });
-  } catch (error: any) {
+  } catch (error) {
     // Handle Jupyter initialization timeout (request waited but Jupyter wasn't ready in time)
     if (isJupyterNotReadyError(error)) {
       console.log("[Notebook] Request timed out waiting for Jupyter initialization");
@@ -144,13 +148,15 @@ export async function executeCell(sandbox: Sandbox, request: Request): Promise<R
     
     // Check if error is retryable
     if (isRetryableError(error)) {
-      console.log("[Notebook] Retryable error:", error.message);
-      return errorResponse(error.message, 503);
+      const message = error instanceof Error ? error.message : String(error);
+      console.log("[Notebook] Retryable error:", message);
+      return errorResponse(message, 503);
     }
     
     // Log actual errors
-    console.error("Execute cell error:", error);
-    return errorResponse(error.message || "Failed to execute code", 500);
+  console.error("Execute cell error:", error);
+  const message = error instanceof Error ? error.message : "Failed to execute code";
+  return errorResponse(message, 500);
   }
 }
 
@@ -167,7 +173,7 @@ export async function deleteSession(sandbox: Sandbox, request: Request): Promise
     }
     
     return jsonResponse({ success: true });
-  } catch (error: any) {
+  } catch (error) {
     // Handle Jupyter initialization timeout (request waited but Jupyter wasn't ready in time)
     if (isJupyterNotReadyError(error)) {
       console.log("[Notebook] Request timed out waiting for Jupyter initialization");
@@ -190,12 +196,14 @@ export async function deleteSession(sandbox: Sandbox, request: Request): Promise
     
     // Check if error is retryable
     if (isRetryableError(error)) {
-      console.log("[Notebook] Retryable error:", error.message);
-      return errorResponse(error.message, 503);
+      const message = error instanceof Error ? error.message : String(error);
+      console.log("[Notebook] Retryable error:", message);
+      return errorResponse(message, 503);
     }
     
     // Log actual errors
-    console.error("Delete session error:", error);
-    return errorResponse(error.message || "Failed to delete session", 500);
+  console.error("Delete session error:", error);
+  const message = error instanceof Error ? error.message : "Failed to delete session";
+  return errorResponse(message, 500);
   }
 }

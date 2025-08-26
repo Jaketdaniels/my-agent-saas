@@ -11,10 +11,10 @@ const nextConfig = {
     typedRoutes: true,
   },
   eslint: {
-    ignoreDuringBuilds: process.env.SKIP_LINTER === 'true'
+  ignoreDuringBuilds: false
   },
   typescript: {
-    ignoreBuildErrors: process.env.SKIP_LINTER === 'true'
+  ignoreBuildErrors: false
   }
 };
 

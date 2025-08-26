@@ -6,12 +6,16 @@ import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
 import { toast } from 'react-hot-toast';
 
+type Output =
+  | { id?: string; type: 'text'; data: string }
+  | { id?: string; type: 'image'; data: string };
+
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
-  outputs?: any[];
+  outputs?: Output[];
 }
 
 export function ChatInterface() {
@@ -36,6 +40,7 @@ export function ChatInterface() {
         toast.success('Files uploaded successfully');
       }
     } catch (error) {
+      console.error('Upload failed:', error);
       toast.error('Failed to upload files');
     }
   };
@@ -110,7 +115,7 @@ export function ChatInterface() {
             {message.outputs && message.outputs.length > 0 && (
               <div className="mt-4 space-y-2">
                 {message.outputs.map((output, idx) => (
-                  <div key={(output?.id as string) ?? `${message.id}-${output?.type ?? 'out'}-${idx}`}
+                  <div key={output.id ?? `${message.id}-${output.type}-${idx}`}
                        className="bg-gray-100 p-2 rounded">
                     {output.type === 'image' && (
                       // eslint-disable-next-line @next/next/no-img-element
