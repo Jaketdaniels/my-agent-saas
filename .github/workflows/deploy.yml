@@ -93,7 +93,9 @@ jobs:
 
       - name: Purge Cloudflare CDN cache
         if: ${{ vars.CLOUDFLARE_ZONE_ID != '' }}
-        uses: nathanvaughn/actions-cloudflare-purge@master
-        with:
-          cf_zone: ${{ vars.CLOUDFLARE_ZONE_ID }}
-          cf_auth: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          echo "Purging Cloudflare cache..."
+          curl -X POST "https://api.cloudflare.com/client/v4/zones/${{ vars.CLOUDFLARE_ZONE_ID }}/purge_cache" \
+            -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            --data '{"purge_everything":true}' || echo "Cache purge failed, but deployment succeeded"
