@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workerPath = path.join(process.cwd(), '.open-next', 'worker.js');
 
 console.log('Patching worker to export Durable Objects...');
