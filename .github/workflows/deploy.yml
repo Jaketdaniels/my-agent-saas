@@ -63,7 +63,18 @@ jobs:
       - name: Migrate local D1 database
         run: pnpm run db:migrate:dev
 
-      - name: Deploy
+      - name: Build and push container first
+        run: |
+          echo "Pre-building container to establish build ID..."
+          # Build the container image
+          docker build -t sandbox-container:latest .
+          # Use wrangler to push the container (this will assign a build ID)
+          npx wrangler containers push sandbox-container:latest --name sandbox-container || true
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+      - name: Deploy with OpenNext
         run: pnpm run deploy
         env:
           DATABASE_ID: ${{ env.D1_DATABASE_ID }}
