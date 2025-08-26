@@ -13,6 +13,7 @@ import {
   SquareTerminal,
   CreditCard,
   Users,
+  Bot,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -53,7 +54,7 @@ type Data = {
   projects: NavItem[]
 }
 
-// TODO Add a theme switcher
+// NOTE: Add a theme switcher later
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { session } = useSessionStore();
   const [formattedTeams, setFormattedTeams] = useState<Data['teams']>([]);
@@ -65,7 +66,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       const teamData = session.teams.map(team => {
         return {
           name: team.name,
-          // TODO Get the actual logo when we implement team avatars
+          // NOTE: Replace with actual team avatar/logo when implemented
           logo: Building2,
           // Default plan - you might want to add plan data to your team structure
           plan: team.role.name || "Member"
@@ -88,6 +89,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         url: "/dashboard",
         icon: SquareTerminal,
         isActive: true,
+      },
+      {
+        title: "AI Agent Chat",
+        url: "/agent-chat",
+        icon: Bot,
       },
       {
         title: "Teams",

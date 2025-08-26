@@ -4,8 +4,8 @@
  */
  {
     "$schema": "node_modules/wrangler/config-schema.json",
-    "account_id": "82e5aa3e06eba55221231ef482269452",
-    "name": "cloudflare-workers-nextjs-saas-template",
+    "account_id": "99d4e92ade821bd5168cbe8935e719ab",
+    "name": "my-agent-saas",
     "main": ".open-next/worker.js",
     "compatibility_date": "2025-03-01",
     "compatibility_flags": [
@@ -39,9 +39,9 @@
      * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
      */
     "vars": {
-        "EMAIL_FROM": "no-reply@notifications.agenticdev.agency",
-        "EMAIL_FROM_NAME": "AgenticDev.agency",
-        "EMAIL_REPLY_TO": "support@agenticdev.agency"
+        "EMAIL_FROM": "support@netm8.com",
+        "EMAIL_FROM_NAME": "netM8",
+        "EMAIL_REPLY_TO": "support@netm8.com"
     },
     /**
      * Note: Use secrets to store sensitive data.
@@ -55,7 +55,7 @@
      "services": [
       {
         "binding": "WORKER_SELF_REFERENCE",
-        "service": "cloudflare-workers-nextjs-saas-template"
+        "service": "my-agent-saas"
       }
     ],
 
@@ -64,6 +64,10 @@
         {
           "name": "NEXT_CACHE_DO_QUEUE",
           "class_name": "DOQueueHandler",
+        },
+        {
+          "name": "Sandbox",
+          "class_name": "Sandbox"
         }
       ]
     },
@@ -71,7 +75,7 @@
     "migrations": [
       {
         "tag": "v1",
-        "new_sqlite_classes": ["DOQueueHandler"],
+        "new_sqlite_classes": ["DOQueueHandler", "Sandbox"],
       },
     ],
 
@@ -79,14 +83,21 @@
         {
             "binding": "NEXT_TAG_CACHE_D1",
             "database_name": "cloudflare-workers-nextjs-saas",
-            "database_id": "94dd1269-a29c-4621-adff-1762d1af6926",
+            "database_id": "dd6858a1-5498-4b2a-ab8a-ab7c4a8bf7e0",
             "migrations_dir": "src/db/migrations"
         }
     ],
     "kv_namespaces": [
         {
             "binding": "NEXT_INC_CACHE_KV",
-            "id": "c6f2b077e0a34a84b3598558eb833055"
+            "id": "13b6503b7fa447baac05f2a7498d5015"
         }
+    ],
+    "containers": [
+      {
+        "class_name": "Sandbox",
+        "image": "./Dockerfile",
+        "max_instances": 10
+      }
     ]
   }

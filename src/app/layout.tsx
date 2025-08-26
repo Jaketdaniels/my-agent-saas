@@ -24,6 +24,9 @@ export const metadata: Metadata = {
   keywords: ["SaaS", "Next.js", "React", "TypeScript", "Cloudflare Workers", "Edge Computing"],
   authors: [{ name: "Lubomir Georgiev" }],
   creator: "Lubomir Georgiev",
+  icons: {
+    icon: "/favicon.ico",
+  },
   openGraph: {
     type: "website",
     locale: "en_US",

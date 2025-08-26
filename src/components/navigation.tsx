@@ -45,6 +45,7 @@ export function Navigation() {
     { name: "Home", href: "/" },
     ...(session ? [
       { name: "Settings", href: "/settings" },
+  { name: "AI Agent Chat", href: "/agent-chat" as Route },
       { name: "Dashboard", href: "/dashboard" },
     ] as NavItem[] : []),
   ]
