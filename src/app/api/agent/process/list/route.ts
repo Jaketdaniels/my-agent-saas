@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRequestContext } from "@cloudflare/next-on-pages";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { requireApiAuth } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     const userId = session.user.id;
 
     // Get Cloudflare context
-    const { env } = getRequestContext();
+    const { env } = getCloudflareContext();
 
     // Get sessionId from query params
     const { searchParams } = new URL(request.url);

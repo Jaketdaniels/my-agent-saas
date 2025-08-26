@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getRequestContext } from '@cloudflare/next-on-pages';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { requireApiAuth } from '@/lib/auth';
 import { z } from 'zod';
 
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     const userId = session.user.id;
 
     // Get Cloudflare context
-    const { env } = getRequestContext();
+    const { env } = getCloudflareContext();
 
     // Parse and validate request body
     let body;

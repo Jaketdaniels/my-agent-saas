@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getRequestContext } from "@cloudflare/next-on-pages";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { requireApiAuth } from "@/lib/auth";
 import { agentInterpretSchema } from "@/schemas/agent-interpret.schema";
 import { z } from "zod";
@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     await requireApiAuth();
 
     // Get Cloudflare context
-    const { env } = getRequestContext();
+    const { env } = getCloudflareContext();
 
     // Validate and parse request body
     let requestBody;
