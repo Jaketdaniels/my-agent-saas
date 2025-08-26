@@ -96,7 +96,7 @@
     "containers": [
       {
         "class_name": "Sandbox",
-        "image": "./Dockerfile",
+  "image": "Dockerfile",
         "max_instances": 10
       }
     ]

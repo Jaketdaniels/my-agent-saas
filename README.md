@@ -10,7 +10,7 @@ SaaS platform with autonomous AI agents. This system provides:
 
 ## Architecture Overview
 
-```
+
 User → netm8.com → Cloudflare Workers
                     ├── Next.js App (UI)
                     ├── Agent Instances (Durable Objects)
@@ -19,18 +19,17 @@ User → netm8.com → Cloudflare Workers
                     │   └── Sandbox Execution
                     ├── D1 Database (User/Billing Data)
                     └── KV Storage (Caching)
-```
 
 ### Core Components
 
 #### 1. **AI Agent System**
-- `/src/app/api/agent/*` - Agent API endpoints 
+- `/src/app/api/agent/*` - Agent API endpoints
 - Each user gets their own Agent instance (Durable Object)
 - Agents maintain context across sessions
 - Can execute code, manage files, run processes
 - Uses OpenAI model "gpt-oss:20b"
 
-#### 2. **SaaS Platform** 
+#### 2. **SaaS Platform**
 - Complete auth system (email/password, Google OAuth, passkeys)
 - Stripe billing with credit system
 - Team management with roles/permissions
@@ -60,7 +59,7 @@ User logs in → Accesses Agent Chat → Agent Instance Created (Durable Object)
 - **Hibernation**: Agents sleep when idle, wake instantly when needed
 - **Global Routing**: User always connects to same agent instance
 
-### 3. Sandbox Execution 
+### 3. Sandbox Execution
 
 ```javascript
 
@@ -141,6 +140,6 @@ git push origin main → GitHub Actions → Cloudflare Workers → Live Agent Pl
 
 ---
 
-**Solo Dev**: Jake @ netM8 Solutions  
-**Status**: Deployed to Cloudflare Workers  
+**Solo Dev**: Jake @ netM8 Solutions
+**Status**: Deployed to Cloudflare Workers
 **Reality**: This is a working AI Agent platform, not a prototype
