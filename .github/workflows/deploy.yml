@@ -66,6 +66,9 @@ jobs:
       - name: Build OpenNext bundle
         run: pnpm run opennext:build
         
+      - name: Patch worker with Durable Object exports
+        run: node scripts/patch-worker.js
+        
       - name: Deploy with Wrangler directly  
         run: |
           echo "Deploying with wrangler to properly handle container build..."
