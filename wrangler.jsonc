@@ -2,102 +2,73 @@
  * For more details on how to configure Wrangler, refer to:
  * https://developers.cloudflare.com/workers/wrangler/configuration/
  */
- {
-    "$schema": "node_modules/wrangler/config-schema.json",
-    "account_id": "99d4e92ade821bd5168cbe8935e719ab",
-    "name": "my-agent-saas",
-    "main": ".open-next/worker.js",
-    "compatibility_date": "2025-03-01",
-    "compatibility_flags": [
-      "nodejs_compat",
-      "global_fetch_strictly_public"
-    ],
-    // Minification helps to keep the Worker bundle size down and improve start up time.
-    "minify": true,
-    "assets": {
-      "binding": "ASSETS",
-      "directory": ".open-next/assets"
-    },
-    "observability": {
-      "enabled": true
-    },
-    /**
-     * Smart Placement
-     * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
-     */
-    "placement": { "mode": "smart" },
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "account_id": "99d4e92ade821bd5168cbe8935e719ab",
+  "name": "my-agent-saas",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2025-03-01",
+  "compatibility_flags": [
+    "nodejs_compat",
+    "global_fetch_strictly_public"
+  ],
+  "minify": true,
+  "assets": {
+    "binding": "ASSETS",
+    "directory": ".open-next/assets"
+  },
+  "observability": { "enabled": true },
+  "placement": { "mode": "smart" },
 
-    /**
-     * Bindings
-     * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including
-     * databases, object storage, AI inference, real-time communication and more.
-     * https://developers.cloudflare.com/workers/runtime-apis/bindings/
-     */
+  "vars": {
+    "EMAIL_FROM": "support@netm8.com",
+    "EMAIL_FROM_NAME": "netM8",
+    "EMAIL_REPLY_TO": "support@netm8.com"
+  },
 
-    /**
-     * Environment Variables
-     * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
-     */
-    "vars": {
-        "EMAIL_FROM": "support@netm8.com",
-        "EMAIL_FROM_NAME": "netM8",
-        "EMAIL_REPLY_TO": "support@netm8.com"
-    },
-    /**
-     * Note: Use secrets to store sensitive data.
-     * https://developers.cloudflare.com/workers/configuration/secrets/
-     */
+  "services": [
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "my-agent-saas"
+    }
+  ],
 
-    /**
-     * Service Bindings (communicate between multiple Workers)
-     * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
-     */
-     "services": [
-      {
-        "binding": "WORKER_SELF_REFERENCE",
-        "service": "my-agent-saas"
-      }
-    ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "NEXT_CACHE_DO_QUEUE", "class_name": "DOQueueHandler" },
+      { "name": "Sandbox", "class_name": "Sandbox" }
+    ]
+  },
 
-    "durable_objects": {
-      "bindings": [
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["DOQueueHandler", "Sandbox"]
+    }
+  ],
+
+  "d1_databases": [
+    {
+      "binding": "NEXT_TAG_CACHE_D1",
+      "database_name": "cloudflare-workers-nextjs-saas",
+      "database_id": "dd6858a1-5498-4b2a-ab8a-ab7c4a8bf7e0",
+      "migrations_dir": "src/db/migrations"
+    }
+  ],
+
+  "kv_namespaces": [
+    { "binding": "NEXT_INC_CACHE_KV", "id": "13b6503b7fa447baac05f2a7498d5015" }
+  ],
+
+  "env": {
+    "production": {
+      "containers": [
         {
-          "name": "NEXT_CACHE_DO_QUEUE",
-          "class_name": "DOQueueHandler",
-        },
-        {
-          "name": "Sandbox",
-          "class_name": "Sandbox"
+          "class_name": "Sandbox",
+          "image": "Dockerfile",
+          "max_instances": 10
         }
       ]
-    },
-
-    "migrations": [
-      {
-        "tag": "v1",
-        "new_sqlite_classes": ["DOQueueHandler", "Sandbox"],
-      },
-    ],
-
-    "d1_databases": [
-        {
-            "binding": "NEXT_TAG_CACHE_D1",
-            "database_name": "cloudflare-workers-nextjs-saas",
-            "database_id": "dd6858a1-5498-4b2a-ab8a-ab7c4a8bf7e0",
-            "migrations_dir": "src/db/migrations"
-        }
-    ],
-    "kv_namespaces": [
-        {
-            "binding": "NEXT_INC_CACHE_KV",
-            "id": "13b6503b7fa447baac05f2a7498d5015"
-        }
-    ],
-    "containers": [
-      {
-        "class_name": "Sandbox",
-  "image": "Dockerfile",
-        "max_instances": 10
-      }
-    ]
+    }
   }
+}
