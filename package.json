@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.21",
+    "@cloudflare/next-on-pages": "^1.13.14",
     "@cloudflare/sandbox": "^0.3.0",
     "@heroicons/react": "^2.2.0",
     "@heroui/react": "^2.8.2",

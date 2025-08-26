@@ -92,7 +92,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       },
       {
         title: "AI Agent Chat",
-        url: "/agent-chat",
+        url: "/agent-chat" as Route,
         icon: Bot,
       },
       {
