@@ -1,4 +1,4 @@
-import { getSandbox, type Sandbox } from "@cloudflare/sandbox";
+import type { Sandbox } from "@cloudflare/sandbox";
 import {
   executeCommand,
   executeCommandStream,
@@ -34,8 +34,12 @@ function generateSecureRandomString(length: number = 12): string {
   return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
-// Helper function to get user sandbox
-function getUserSandbox(env: unknown) {
+// Helper function to get user sandbox (async to handle dynamic import)
+async function getUserSandbox(env: unknown) {
+  // Load getSandbox using eval to bypass webpack bundling
+  const { loadGetSandbox } = await import('@/lib/cloudflare-runtime');
+  const getSandbox = await loadGetSandbox();
+  
   // Placeholder - implement based on your auth/user context
   // Cast through unknown first due to CloudflareEnv type limitations
   const envTyped = env as unknown as { SANDBOX: Parameters<typeof getSandbox>[0] };
@@ -44,10 +48,11 @@ function getUserSandbox(env: unknown) {
 
 // API Router definition
 const apiRouter = {
-  async fetch(request: Request, env: unknown, ctx: unknown) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  async fetch(request: Request, env: unknown, _ctx: unknown) {
     try {
       const { pathname } = new URL(request.url);
-      const sandbox = getUserSandbox(env) as unknown as Sandbox<unknown>;
+      const sandbox = await getUserSandbox(env) as unknown as Sandbox<unknown>;
       const envTyped = env as { ASSETS: { fetch: (request: Request) => Response } };
 
       // Try each route group handler; the first non-null response is returned
@@ -298,7 +303,8 @@ print("About to cause an error")
     sandbox: Sandbox<unknown>,
     request: Request,
     pathname: string,
-    env: unknown
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _env: unknown
   ): Promise<Response | null> {
     if (pathname === "/health") {
       return jsonResponse({

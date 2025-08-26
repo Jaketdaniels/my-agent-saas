@@ -2,8 +2,15 @@ import type { Sandbox } from "@cloudflare/sandbox";
 import { errorResponse, jsonResponse, parseJsonBody } from "./http";
 
 export async function startProcess(sandbox: Sandbox<unknown>, request: Request) {
-    const body = await parseJsonBody(request);
-    const { command, processId, sessionId, timeout, env: envVars, cwd } = body;
+    const body = await parseJsonBody(request) as { 
+        command?: string; 
+        processId?: string; 
+        sessionId?: string; 
+        timeout?: number; 
+        env?: Record<string, string>; 
+        cwd?: string 
+    };
+    const { command, processId, timeout, env: envVars, cwd } = body;
 
     if (!command) {
         return errorResponse("Command is required");
@@ -12,7 +19,6 @@ export async function startProcess(sandbox: Sandbox<unknown>, request: Request) 
     if (typeof sandbox.startProcess === 'function') {
         const process = await sandbox.startProcess(command, {
             processId,
-            sessionId,
             timeout,
             env: envVars,
             cwd

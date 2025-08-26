@@ -8,11 +8,11 @@ const sessions = new Map<string, { contextId: string; language: string }>();
 // Create a new notebook session
 export async function createSession(sandbox: Sandbox, request: Request): Promise<Response> {
   try {
-    const body = await parseJsonBody(request);
+    const body = await parseJsonBody(request) as { language?: string };
     const { language = 'python' } = body;
 
     // Create a code context for this session
-    const context = await sandbox.createCodeContext({ language });
+    const context = await sandbox.createCodeContext({ language: language as 'python' | 'javascript' | 'typescript' });
     const sessionId = `session-${Date.now()}-${crypto.randomUUID()}`;
 
     sessions.set(sessionId, {
@@ -59,7 +59,7 @@ export async function createSession(sandbox: Sandbox, request: Request): Promise
 // Execute code in a notebook session
 export async function executeCell(sandbox: Sandbox, request: Request): Promise<Response> {
   try {
-    const body = await parseJsonBody(request);
+    const body = await parseJsonBody(request) as { code?: string; sessionId?: string; language?: string };
     const { code, sessionId, language = 'python' } = body;
 
     if (!code) {
@@ -67,17 +67,25 @@ export async function executeCell(sandbox: Sandbox, request: Request): Promise<R
     }
 
     // Get or create session
-    let session = sessions.get(sessionId);
+    let session = sessionId ? sessions.get(sessionId) : undefined;
     if (!session) {
       // Auto-create session if it doesn't exist
-      const context = await sandbox.createCodeContext({ language });
+      const context = await sandbox.createCodeContext({ language: language as 'python' | 'javascript' | 'typescript' });
       session = { contextId: context.id, language };
-      sessions.set(sessionId, session);
+      if (sessionId) {
+        sessions.set(sessionId, session);
+      }
     }
 
     // Execute code with streaming
     const stream = await sandbox.runCodeStream(code, {
-      context: { id: session.contextId },
+      context: { 
+        id: session.contextId,
+        language: session.language as 'python' | 'javascript',
+        cwd: process.cwd(),
+        createdAt: new Date(),
+        lastUsed: new Date()
+      },
       language: session.language as 'python' | 'javascript'
     });
 
@@ -163,13 +171,16 @@ export async function executeCell(sandbox: Sandbox, request: Request): Promise<R
 // Clean up a session
 export async function deleteSession(sandbox: Sandbox, request: Request): Promise<Response> {
   try {
-    const { sessionId } = await parseJsonBody(request);
-    const session = sessions.get(sessionId);
+    const body = await parseJsonBody(request) as { sessionId?: string };
+    const { sessionId } = body;
+    const session = sessionId ? sessions.get(sessionId) : undefined;
 
     if (session) {
       // Delete the context
       await sandbox.deleteCodeContext(session.contextId);
-      sessions.delete(sessionId);
+      if (sessionId) {
+        sessions.delete(sessionId);
+      }
     }
 
     return jsonResponse({ success: true });

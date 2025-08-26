@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getRequestContext } from '@cloudflare/next-on-pages';
 import { requireApiAuth } from '@/lib/auth';
-import { getSandbox } from '@cloudflare/sandbox';
 import { z } from 'zod';
 
 export const runtime = 'edge';
@@ -45,6 +44,10 @@ export async function POST(request: NextRequest) {
       throw error;
     }
 
+    // Load getSandbox using eval to bypass webpack bundling
+    const { loadGetSandbox } = await import('@/lib/cloudflare-runtime');
+    const getSandbox = await loadGetSandbox();
+    
     // Get user's sandbox instance
     const sessionId = validatedData.sessionId || `user-${userId}-sandbox`;
     // Cast through unknown first due to CloudflareEnv type limitations

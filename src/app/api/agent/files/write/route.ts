@@ -1,13 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getRequestContext } from '@cloudflare/next-on-pages';
-import { requireApiAuth } from '@/lib/auth';
-import { getSandbox } from '@cloudflare/sandbox';
-import { z } from 'zod';
+import { NextRequest, NextResponse } from "next/server";
+import { getRequestContext } from "@cloudflare/next-on-pages";
+import { requireApiAuth } from "@/lib/auth";
+import { z } from "zod";
 
-export const runtime = 'edge';
+export const runtime = "edge";
 
 const writeFileSchema = z.object({
-  path: z.string().min(1, 'Path is required'),
+  path: z.string().min(1, "Path is required"),
   content: z.string(),
   encoding: z.string().optional(),
   sessionId: z.string().optional(),
@@ -28,7 +27,7 @@ export async function POST(request: NextRequest) {
       body = await request.json();
     } catch {
       return NextResponse.json(
-        { error: 'Invalid JSON in request body' },
+        { error: "Invalid JSON in request body" },
         { status: 400 }
       );
     }
@@ -39,19 +38,30 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       if (error instanceof z.ZodError) {
         return NextResponse.json(
-          { error: 'Validation failed', details: error.errors },
+          { error: "Validation failed", details: error.errors },
           { status: 400 }
         );
       }
       throw error;
     }
 
-    const { path, content, encoding, sessionId: requestSessionId } = validatedData;
+    const {
+      path,
+      content,
+      encoding,
+      sessionId: requestSessionId,
+    } = validatedData;
+
+    // Load getSandbox using eval to bypass webpack bundling
+    const { loadGetSandbox } = await import("@/lib/cloudflare-runtime");
+    const getSandbox = await loadGetSandbox();
 
     // Get user's sandbox instance
     const sessionId = requestSessionId || `user-${userId}-sandbox`;
     // Cast through unknown first due to CloudflareEnv type limitations
-    const envTyped = env as unknown as { Sandbox: Parameters<typeof getSandbox>[0] };
+    const envTyped = env as unknown as {
+      Sandbox: Parameters<typeof getSandbox>[0];
+    };
     const sandboxStub = getSandbox(envTyped.Sandbox, sessionId);
 
     // Write the file
@@ -59,16 +69,16 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'File written successfully',
+      message: "File written successfully",
       path,
     });
-
   } catch (error) {
-    console.error('Write file error:', error);
-    
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    console.error("Write file error:", error);
+
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error occurred";
     return NextResponse.json(
-      { error: 'Failed to write file', details: errorMessage },
+      { error: "Failed to write file", details: errorMessage },
       { status: 500 }
     );
   }

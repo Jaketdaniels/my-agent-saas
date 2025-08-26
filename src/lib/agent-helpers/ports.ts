@@ -2,7 +2,7 @@ import type { Sandbox } from "@cloudflare/sandbox";
 import { errorResponse, jsonResponse, parseJsonBody } from "./http";
 
 export async function exposePort(sandbox: Sandbox<unknown>, request: Request) {
-    const body = await parseJsonBody(request);
+    const body = await parseJsonBody(request) as { port?: number; name?: string };
     const { port, name } = body;
 
     if (!port) {
@@ -20,7 +20,7 @@ export async function exposePort(sandbox: Sandbox<unknown>, request: Request) {
 }
 
 export async function unexposePort(sandbox: Sandbox<unknown>, request: Request) {
-    const body = await parseJsonBody(request);
+    const body = await parseJsonBody(request) as { port?: number };
     const { port } = body;
 
     if (!port) {

@@ -23,11 +23,11 @@ export function getUserSandbox(
   // Use a consistent ID for the user's sandbox instance
   // This ensures the same sandbox is reused across requests
   const sandboxId = sessionId || `user-${userId}-sandbox`;
-  return getSandbox(env.Sandbox as any, sandboxId);
+  return getSandbox(env.Sandbox as unknown as Parameters<typeof getSandbox>[0], sandboxId);
 }
 
 // Helper to safely parse JSON from request
-export async function parseRequestBody<T = any>(request: Request): Promise<T> {
+export async function parseRequestBody<T = unknown>(request: Request): Promise<T> {
   try {
     const contentType = request.headers.get('content-type');
     if (contentType?.includes('application/json')) {
@@ -40,7 +40,7 @@ export async function parseRequestBody<T = any>(request: Request): Promise<T> {
 }
 
 // Helper to create consistent API responses
-export function createApiResponse<T = any>(
+export function createApiResponse<T = unknown>(
   data: T,
   status: number = 200
 ): Response {
@@ -57,12 +57,12 @@ export function createApiResponse<T = any>(
 export function createErrorResponse(
   message: string,
   status: number = 400,
-  details?: any
+  details?: unknown
 ): Response {
   return createApiResponse(
     {
       error: message,
-      ...(details && { details }),
+      ...(details && typeof details === 'object' ? { details } : {}),
     },
     status
   );
@@ -80,7 +80,7 @@ export function createStreamResponse(stream: ReadableStream): Response {
 }
 
 // Type guards for Sandbox responses
-export function isSandboxError(response: any): response is Error {
+export function isSandboxError(response: unknown): response is Error {
   return response instanceof Error || 
          (typeof response === 'object' && response !== null && 'error' in response);
 }
@@ -104,9 +104,9 @@ export async function withSandbox<T>(
 
 // Common sandbox operations
 export class SandboxOperations {
-  constructor(private sandbox: ISandbox) {}
+  constructor(private readonly sandbox: ISandbox) {}
 
-  async executeCommand(command: string, options?: any) {
+  async executeCommand(command: string, options?: { cwd?: string; env?: Record<string, string> }) {
     return withSandbox(
       async (sb) => sb.exec(command, options),
       this.sandbox,
@@ -122,7 +122,7 @@ export class SandboxOperations {
     );
   }
 
-  async writeFile(path: string, content: string, options?: any) {
+  async writeFile(path: string, content: string, options?: { encoding?: string }) {
     return withSandbox(
       async (sb) => sb.writeFile(path, content, options),
       this.sandbox,
@@ -154,9 +154,9 @@ export class SandboxOperations {
     );
   }
 
-  async startProcess(command: string, args?: string[], options?: any) {
+  async startProcess(command: string, args?: string[], options?: { cwd?: string; env?: Record<string, string>; timeout?: number }) {
     return withSandbox(
-      async (sb) => sb.startProcess(command, args, options),
+      async (sb) => sb.startProcess(command, options),
       this.sandbox,
       'Failed to start process'
     );
@@ -172,7 +172,7 @@ export class SandboxOperations {
 
   async getProcesses() {
     return withSandbox(
-      async (sb) => sb.getProcesses(),
+      async (sb) => sb.getProcess ? sb.getProcess('') : Promise.reject(new Error('getProcess not available')),
       this.sandbox,
       'Failed to get processes'
     );
@@ -180,7 +180,7 @@ export class SandboxOperations {
 
   async exposePort(port: number, protocol?: 'http' | 'https') {
     return withSandbox(
-      async (sb) => sb.exposePort(port, protocol),
+      async (sb) => sb.exposePort(port, { hostname: 'localhost', ...(protocol ? { protocol } : {}) }),
       this.sandbox,
       'Failed to expose port'
     );

@@ -8,7 +8,7 @@ interface ExecuteStreamBody {
 
 export async function executeCommandStream(sandbox: Sandbox<unknown>, request: Request) {
     const body = await parseJsonBody<ExecuteStreamBody>(request);
-    const { command, sessionId } = body;
+    const { command } = body;
 
     if (!command) {
         return errorResponse("Command is required");

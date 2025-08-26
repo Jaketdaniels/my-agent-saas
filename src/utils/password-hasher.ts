@@ -18,7 +18,7 @@ async function hashPassword({ password, providedSalt }: HashPasswordParams) {
   const key = await crypto.subtle.deriveKey(
     {
       name: "PBKDF2",
-      salt: salt as ArrayBuffer | ArrayBufferView,
+      salt: new Uint8Array(salt),
       iterations: 100000,
       hash: "SHA-256",
     },

@@ -3,7 +3,7 @@ import { errorResponse, jsonResponse, parseJsonBody } from "./http";
 
 export async function setupNextjs(sandbox: Sandbox<unknown>, request: Request) {
   try {
-    const body = await parseJsonBody(request);
+    const body = await parseJsonBody(request) as { projectName?: string };
     const { projectName = "my-nextjs-app" } = body;
 
     // Step 1: Create Next.js app
@@ -41,7 +41,7 @@ export async function setupNextjs(sandbox: Sandbox<unknown>, request: Request) {
 
 export async function setupReact(sandbox: Sandbox<unknown>, request: Request) {
   try {
-    const body = await parseJsonBody(request);
+    const body = await parseJsonBody(request) as { projectName?: string };
     const { projectName = "my-react-app" } = body;
 
     // Step 1: Create React app
@@ -82,7 +82,7 @@ export async function setupReact(sandbox: Sandbox<unknown>, request: Request) {
 
 export async function setupVue(sandbox: Sandbox<unknown>, request: Request) {
   try {
-    const body = await parseJsonBody(request);
+    const body = await parseJsonBody(request) as { projectName?: string };
     const { projectName = "my-vue-app" } = body;
 
     // Step 1: Create Vue app
@@ -122,7 +122,7 @@ export async function setupVue(sandbox: Sandbox<unknown>, request: Request) {
 
 export async function setupStatic(sandbox: Sandbox<unknown>, request: Request) {
   try {
-    const body = await parseJsonBody(request);
+    const body = await parseJsonBody(request) as { projectName?: string };
     const { projectName = "my-static-site" } = body;
 
     // Step 1: Create directory and basic HTML

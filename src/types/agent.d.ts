@@ -1,4 +1,5 @@
 // Agent API Type Definitions
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import type { ISandbox } from '@cloudflare/sandbox';
 
 // Re-export Sandbox types
@@ -98,7 +99,7 @@ export interface AgentInterpretRequest {
 
 export interface AgentInterpretResponse {
   result: string;
-  outputs?: any[];
+  outputs?: unknown[];
   success: boolean;
   error?: string;
 }
@@ -125,7 +126,7 @@ export interface AgentUploadResponse {
 // Template setup requests
 export interface AgentTemplateRequest {
   projectName?: string;
-  options?: Record<string, any>;
+  options?: Record<string, unknown>;
 }
 
 export interface AgentTemplateResponse {
@@ -149,7 +150,7 @@ export interface AgentNotebookExecuteRequest {
 export interface AgentNotebookResponse {
   sessionId: string;
   status: 'created' | 'executing' | 'idle' | 'deleted';
-  result?: any;
-  outputs?: any[];
+  result?: unknown;
+  outputs?: unknown[];
   error?: string;
 }

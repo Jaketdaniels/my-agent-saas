@@ -32,7 +32,7 @@ export interface NextCloudflareContext {
   request: Request;
   env: CloudflareEnv;
   params?: Record<string, string>;
-  waitUntil: (promise: Promise<any>) => void;
+  waitUntil: (promise: Promise<unknown>) => void;
   passThroughOnException: () => void;
 }
 
@@ -42,7 +42,7 @@ export interface AgentSession {
   userId: string;
   createdAt: number;
   lastActivity: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 // User context for agent operations

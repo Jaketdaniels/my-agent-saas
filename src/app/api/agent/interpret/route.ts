@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getRequestContext } from '@cloudflare/next-on-pages';
-import { requireApiAuth } from '@/lib/auth';
-import { agentInterpretSchema } from '@/schemas/agent-interpret.schema';
-import { z } from 'zod';
+import { NextRequest, NextResponse } from "next/server";
+import { getRequestContext } from "@cloudflare/next-on-pages";
+import { requireApiAuth } from "@/lib/auth";
+import { agentInterpretSchema } from "@/schemas/agent-interpret.schema";
+import { z } from "zod";
 
-export const runtime = 'edge';
+export const runtime = "edge";
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       requestBody = await request.json();
     } catch {
       return NextResponse.json(
-        { error: 'Invalid JSON in request body' },
+        { error: "Invalid JSON in request body" },
         { status: 400 }
       );
     }
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       if (error instanceof z.ZodError) {
         return NextResponse.json(
-          { error: 'Validation failed', details: error.errors },
+          { error: "Validation failed", details: error.errors },
           { status: 400 }
         );
       }
@@ -41,42 +41,74 @@ export async function POST(request: NextRequest) {
 
     const { message, code, language } = validatedData;
 
-  // Import sandbox SDK dynamically at runtime in a way that avoids static bundling
-  // so that Cloudflare's runtime resolves it.
-  const modName = '@cloudflare/sandbox' as const;
-  const { getSandbox } = await (Function('m', 'return import(m)'))(modName);
+    // Load getSandbox using eval to bypass webpack bundling
+    const { loadGetSandbox } = await import("@/lib/cloudflare-runtime");
+    const getSandbox = await loadGetSandbox();
 
     // Get sandbox instance using correct env property name
-    const sandbox = getSandbox(env.Sandbox, `user-session-${Date.now()}`);
+    // Cast through unknown first due to CloudflareEnv type limitations
+    const envTyped = env as unknown as {
+      Sandbox: Parameters<typeof getSandbox>[0];
+    };
+    const sandbox = getSandbox(envTyped.Sandbox, `user-session-${Date.now()}`);
 
     // Create code context
     const context = await sandbox.createCodeContext({
-      language
+      language,
     });
 
     // Execute code
-    const execution = await sandbox.runCode(code || message || '', {
+    const execution = await sandbox.runCode(code || message || "", {
       context,
       onStdout: (output: unknown) => {
         const outputObj = output as { text?: string };
-        console.log('Sandbox output:', outputObj.text);
-      }
+        console.log("Sandbox output:", outputObj.text);
+      },
     });
+
+    // Check if there was an execution error
+    if (execution.error) {
+      return NextResponse.json({
+        result: "",
+        outputs: execution.results,
+        success: false,
+        error: `${execution.error.name}: ${
+          execution.error.value
+        }\n${execution.error.traceback.join("\n")}`,
+      });
+    }
+
+    // Combine stdout and any text results for the main result
+    const stdoutResult = execution.logs.stdout.join("\n");
+    const stderrResult =
+      execution.logs.stderr.length > 0 ? execution.logs.stderr.join("\n") : "";
+
+    // Extract any additional outputs from results (images, html, etc)
+    // Cast to unknown[] to avoid TypeScript deep instantiation issues
+    const outputs: unknown[] =
+      execution.results.length > 0 ? execution.results : [];
 
     return NextResponse.json({
-      result: execution.text,
-      outputs: execution.outputs,
-      success: true
-    });
-
+      result: stderrResult
+        ? `${stdoutResult}\n[stderr]: ${stderrResult}`
+        : stdoutResult,
+      outputs: outputs.length > 0 ? outputs : undefined,
+      success: true,
+    } as import("@/types/agent").AgentInterpretResponse);
   } catch (error) {
-    console.error('Sandbox execution error:', error);
-    
+    console.error("Sandbox execution error:", error);
+
     // Handle specific error types
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+
+    // Return error response matching AgentInterpretResponse interface
     return NextResponse.json(
-      { error: 'Code execution failed', details: errorMessage },
+      {
+        result: "",
+        success: false,
+        error: `Code execution failed: ${errorMessage}`,
+      } as import("@/types/agent").AgentInterpretResponse,
       { status: 500 }
     );
   }
