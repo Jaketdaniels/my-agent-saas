@@ -27,21 +27,66 @@ jobs:
           node-version: 23
           cache: 'pnpm'
 
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pnpm-store
+            ~/.cache/pnpm
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
       - name: Cache Next.js build
         uses: actions/cache@v4
         with:
-          path: ${{ github.workspace }}/.next/cache
-          # Generate a new cache whenever packages or source files change
+          path: |
+            ${{ github.workspace }}/.next/cache
+            ${{ github.workspace }}/.next/.cache
           key: ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
-          # If source files changed but packages didn't, rebuild from a prior cache
           restore-keys: |
             ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-
+            ${{ runner.os }}-nextjs-
+
+      - name: Cache OpenNext build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ github.workspace }}/.open-next
+            ${{ github.workspace }}/.vercel
+          key: ${{ runner.os }}-opennext-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
+          restore-keys: |
+            ${{ runner.os }}-opennext-${{ hashFiles('**/pnpm-lock.yaml') }}-
+            ${{ runner.os }}-opennext-
+
+      - name: Cache Wrangler
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.wrangler
+            ~/.cache/wrangler
+          key: ${{ runner.os }}-wrangler-${{ hashFiles('wrangler.jsonc') }}
+          restore-keys: |
+            ${{ runner.os }}-wrangler-
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile --prefer-offline
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          install: true
+          driver-opts: |
+            image=moby/buildkit:latest
+          buildkitd-flags: --debug
+          
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ hashFiles('Dockerfile') }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
         
       - name: Verify Docker availability
         run: |
