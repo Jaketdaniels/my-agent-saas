@@ -17,7 +17,8 @@ export async function GET() {
         id: session.user.id,
         email: session.user.email,
         emailVerified: session.user.emailVerified,
-        name: session.user.name,
+        firstName: session.user.firstName,
+        lastName: session.user.lastName,
       }
     });
   } catch (error) {

@@ -57,8 +57,9 @@ export async function POST(request: NextRequest) {
     // Execute code
     const execution = await sandbox.runCode(code || message || '', {
       context,
-      onStdout: (output) => {
-        console.log('Sandbox output:', output.text);
+      onStdout: (output: unknown) => {
+        const outputObj = output as { text?: string };
+        console.log('Sandbox output:', outputObj.text);
       }
     });
 

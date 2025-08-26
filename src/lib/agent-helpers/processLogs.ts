@@ -1,5 +1,5 @@
 import { Sandbox, parseSSEStream, type LogEvent } from "@cloudflare/sandbox";
-import { corsHeaders, errorResponse, jsonResponse } from "../http";
+import { corsHeaders, errorResponse, jsonResponse } from "./http";
 
 export async function getProcessLogs(sandbox: Sandbox<unknown>, pathname: string) {
     const pathParts = pathname.split("/");
@@ -59,7 +59,7 @@ export async function streamProcessLogs(sandbox: Sandbox<unknown>, pathname: str
                 try {
                     // Get the ReadableStream from sandbox
                     const stream = await sandbox.streamProcessLogs(processId);
-                    
+
                     // Convert to AsyncIterable using parseSSEStream
                     for await (const logEvent of parseSSEStream<LogEvent>(stream)) {
                         // Forward each typed event as SSE

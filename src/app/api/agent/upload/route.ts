@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getRequestContext } from '@cloudflare/next-on-pages';
 import { requireApiAuth } from '@/lib/auth';
 import { z } from 'zod';
 
@@ -21,9 +20,6 @@ export async function POST(request: NextRequest) {
     // Require authentication
     await requireApiAuth();
 
-    // Get Cloudflare context
-    const { env } = getRequestContext();
-
     // Parse form data
     let formData: FormData;
     try {
@@ -37,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     // Extract files from form data
     const files = formData.getAll('files') as File[];
-    
+
     if (files.length === 0) {
       return NextResponse.json(
         { error: 'No files provided' },
@@ -66,19 +62,19 @@ export async function POST(request: NextRequest) {
 
     // Process files for agent context
     const processedFiles = [];
-    
+
     for (const file of files) {
       // Read file content
       const buffer = await file.arrayBuffer();
       const content = new TextDecoder().decode(buffer);
-      
+
       // Store file metadata and content for agent context
       processedFiles.push({
         name: file.name,
         type: file.type,
         size: file.size,
         content: file.type.startsWith('text/') || file.type.includes('json') ? content : null,
-        base64: !file.type.startsWith('text/') && !file.type.includes('json') ? 
+        base64: !file.type.startsWith('text/') && !file.type.includes('json') ?
           Buffer.from(buffer).toString('base64') : null,
       });
     }
@@ -96,10 +92,10 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('File upload error:', error);
-    
+
     // Handle specific error types
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    
+
     return NextResponse.json(
       { error: 'File upload failed', details: errorMessage },
       { status: 500 }

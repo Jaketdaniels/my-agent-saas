@@ -1,8 +1,13 @@
 import { parseSSEStream, type ExecEvent, type Sandbox } from "@cloudflare/sandbox";
-import { corsHeaders, errorResponse, parseJsonBody } from "../http";
+import { corsHeaders, errorResponse, parseJsonBody } from "./http";
+
+interface ExecuteStreamBody {
+    command?: string;
+    sessionId?: string;
+}
 
 export async function executeCommandStream(sandbox: Sandbox<unknown>, request: Request) {
-    const body = await parseJsonBody(request);
+    const body = await parseJsonBody<ExecuteStreamBody>(request);
     const { command, sessionId } = body;
 
     if (!command) {
@@ -19,8 +24,8 @@ export async function executeCommandStream(sandbox: Sandbox<unknown>, request: R
             const encoder = new TextEncoder();
 
             // Get the ReadableStream from sandbox
-            const stream = await sandbox.execStream(command, { sessionId });
-            
+            const stream = await sandbox.execStream(command);
+
             // Convert to AsyncIterable using parseSSEStream
             for await (const event of parseSSEStream<ExecEvent>(stream)) {
                 // Forward each typed event as SSE

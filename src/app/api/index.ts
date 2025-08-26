@@ -1,4 +1,4 @@
-import { getSandbox, proxyToSandbox, type Sandbox } from "@cloudflare/sandbox";
+import { getSandbox, type Sandbox } from "@cloudflare/sandbox";
 import {
   executeCommand,
   executeCommandStream,
@@ -21,49 +21,65 @@ import {
   setupReact,
   setupVue,
   setupStatic,
-} from "./agent";
-import { createSession, executeCell, deleteSession } from "./agent/notebook";
-import { corsHeaders, errorResponse, jsonResponse, parseJsonBody } from "./http";
+} from "@/lib/agent-helpers";
+import { createSession, executeCell, deleteSession } from "@/lib/agent-helpers/notebook";
+import { errorResponse, jsonResponse, parseJsonBody } from "@/lib/agent-helpers/http";
 
 export { Sandbox } from "@cloudflare/sandbox";
 
 // Helper function to generate cryptographically secure random strings
 function generateSecureRandomString(length: number = 12): string {
-      const { pathname } = new URL(request.url);
+  const array = new Uint8Array(length);
   crypto.getRandomValues(array);
   return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
-        const sandbox = getUserSandbox(env) as unknown as Sandbox<unknown>;
+}
 
-        // Try each route group handler; the first non-null response is returned
-        const handlers: Array<() => Promise<Response | null>> = [
-          () => handleNotebookRoutes(sandbox, request, pathname),
-          () => handleCommandRoutes(sandbox, request, pathname),
-          () => handleProcessRoutes(sandbox, request, pathname),
-          () => handlePortRoutes(sandbox, request, pathname),
-          () => handleFileRoutes(sandbox, request, pathname),
-          () => handleTemplateRoutes(sandbox, request, pathname),
-          () => handleExamplesRoutes(sandbox, request, pathname),
-          () => handleSessionRoutes(sandbox, request, pathname),
-          () => handleUtilityRoutes(sandbox, request, pathname, env),
-        ];
+// Helper function to get user sandbox
+function getUserSandbox(env: unknown) {
+  // Placeholder - implement based on your auth/user context
+  // Cast through unknown first due to CloudflareEnv type limitations
+  const envTyped = env as unknown as { SANDBOX: Parameters<typeof getSandbox>[0] };
+  return getSandbox(envTyped.SANDBOX, generateSecureRandomString());
+}
 
-        for (const getResponse of handlers) {
-          const response = await getResponse();
-          if (response) {
-            return response;
-          }
+// API Router definition
+const apiRouter = {
+  async fetch(request: Request, env: unknown, ctx: unknown) {
+    try {
+      const { pathname } = new URL(request.url);
+      const sandbox = getUserSandbox(env) as unknown as Sandbox<unknown>;
+      const envTyped = env as { ASSETS: { fetch: (request: Request) => Response } };
+
+      // Try each route group handler; the first non-null response is returned
+      const handlers: Array<() => Promise<Response | null>> = [
+        () => handleNotebookRoutes(sandbox, request, pathname),
+        () => handleCommandRoutes(sandbox, request, pathname),
+        () => handleProcessRoutes(sandbox, request, pathname),
+        () => handlePortRoutes(sandbox, request, pathname),
+        () => handleFileRoutes(sandbox, request, pathname),
+        () => handleTemplateRoutes(sandbox, request, pathname),
+        () => handleExamplesRoutes(sandbox, request, pathname),
+        () => handleSessionRoutes(sandbox, request, pathname),
+        () => handleUtilityRoutes(sandbox, request, pathname, env),
+      ];
+
+      for (const getResponse of handlers) {
+        const response = await getResponse();
+        if (response) {
+          return response;
         }
-
-        // Fallback: serve static assets for all other requests
-        return env.ASSETS.fetch(request);
-
-      } catch (error) {
-        console.error("API Error:", error);
-        const message = error instanceof Error ? error.message : String(error);
-        return errorResponse(`Internal server error: ${message}`, 500);
       }
-    },
-  };
+
+      // Fallback: serve static assets for all other requests
+      return envTyped.ASSETS.fetch(request);
+
+    } catch (error) {
+      console.error("API Error:", error);
+      const message = error instanceof Error ? error.message : String(error);
+      return errorResponse(`Internal server error: ${message}`, 500);
+    }
+  },
+};
 
   // Route group handlers
   async function handleNotebookRoutes(sandbox: Sandbox<unknown>, request: Request, pathname: string): Promise<Response | null> {
@@ -195,20 +211,18 @@ function generateSecureRandomString(length: number = 12): string {
       try {
         const ctx = await sandbox.createCodeContext({ language: 'python' });
         const execution = await sandbox.runCode(`
-        return await setupReact(sandbox, request);
-      }
+import matplotlib.pyplot as plt
+import numpy as np
 
-      if (pathname === "/api/templates/vue" && request.method === "POST") {
-        return await setupVue(sandbox, request);
-      }
-
-      if (pathname === "/api/templates/static" && request.method === "POST") {
-        return await setupStatic(sandbox, request);
-      }
-
-      // Code Interpreter Example APIs
-      if (pathname === "/api/examples/basic-python" && request.method === "GET") {
-        try {
+x = np.linspace(0, 2*np.pi, 100)
+y = np.sin(x)
+plt.plot(x, y)
+plt.title('Simple Sine Wave')
+plt.xlabel('x')
+plt.ylabel('sin(x)')
+plt.show()
+`, { context: ctx });
+        
         const chartResult = execution.results[0];
         const formats: string[] = [];
         if (chartResult) {
@@ -232,14 +246,10 @@ function generateSecureRandomString(length: number = 12): string {
       try {
         const jsCtx = await sandbox.createCodeContext({ language: 'javascript' });
         const execution = await sandbox.runCode(`
-          const pythonCtx = await sandbox.createCodeContext({ language: 'python' });
-          const execution = await sandbox.runCode('print("Hello from Python!")', { 
-            context: pythonCtx 
-          });
-          
-          // The execution object now has a toJSON method
-          return jsonResponse({
-            output: execution.logs.stdout.join(''),
+console.log("Hello from JavaScript!");
+const result = 2 + 2;
+console.log(\`2 + 2 = \${result}\`);
+`, { context: jsCtx });
         return jsonResponse({ output: execution.logs.stdout.join('\n') });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -251,11 +261,10 @@ function generateSecureRandomString(length: number = 12): string {
       try {
         const ctx = await sandbox.createCodeContext({ language: 'python' });
         const execution = await sandbox.runCode(`
-            errors: execution.error
-          });
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          return errorResponse(message || "Failed to run example", 500);
+# This will cause an error
+print("About to cause an error")
+1 / 0
+`, { context: ctx });
         return jsonResponse({
           error: execution.error ? {
             name: execution.error.name,
@@ -268,6 +277,7 @@ function generateSecureRandomString(length: number = 12): string {
         return errorResponse(message || "Failed to run example", 500);
       }
     }
+
     return null;
   }
 
@@ -288,7 +298,7 @@ function generateSecureRandomString(length: number = 12): string {
     sandbox: Sandbox<unknown>,
     request: Request,
     pathname: string,
-    env: Env
+    env: unknown
   ): Promise<Response | null> {
     if (pathname === "/health") {
       return jsonResponse({
@@ -347,101 +357,6 @@ function generateSecureRandomString(length: number = 12): string {
     }
     // Fallback for this group: let caller continue
     return null;
-        }
-          });
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          return errorResponse(message || "Failed to run example", 500);
-        }
-      }
-
-      // Health check endpoint
-      if (pathname === "/health") {
-        return jsonResponse({
-          status: "healthy",
-          timestamp: new Date().toISOString(),
-          message: "Sandbox SDK Tester is running",
-          apis: [
-            "POST /api/execute - Execute commands",
-            "POST /api/execute/stream - Execute with streaming",
-            "GET /api/process/list - List processes",
-            "POST /api/process/start - Start process",
-            "DELETE /api/process/{id} - Kill process",
-            "GET /api/process/{id}/logs - Get process logs",
-            "GET /api/process/{id}/stream - Stream process logs",
-            "POST /api/expose-port - Expose port",
-            "GET /api/exposed-ports - List exposed ports",
-            "POST /api/write - Write file",
-            "POST /api/read - Read file",
-            "POST /api/list-files - List files in directory",
-            "POST /api/delete - Delete file",
-            "POST /api/rename - Rename file",
-            "POST /api/move - Move file",
-            "POST /api/mkdir - Create directory",
-            "POST /api/git/checkout - Git checkout",
-            "POST /api/templates/nextjs - Setup Next.js project",
-            "POST /api/templates/react - Setup React project",
-            "POST /api/templates/vue - Setup Vue project",
-            "POST /api/templates/static - Setup static site",
-            "POST /api/notebook/session - Create notebook session",
-            "POST /api/notebook/execute - Execute notebook cell",
-            "DELETE /api/notebook/session - Delete notebook session",
-            "GET /api/examples/basic-python - Basic Python example",
-            "GET /api/examples/chart - Chart generation example",
-            "GET /api/examples/javascript - JavaScript execution example",
-            "GET /api/examples/error - Error handling example",
-          ]
-        });
-      }
-
-      // Ping endpoint that actually initializes the container
-      if (pathname === "/api/ping") {
-        try {
-          // Test the actual sandbox connection by calling a simple method
-          // This will initialize the sandbox if it's not already running
-          await sandbox.exec("echo 'Sandbox initialized'");
-          return jsonResponse({
-            message: "pong",
-            timestamp: new Date().toISOString(),
-            sandboxStatus: "ready"
-          });
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          return jsonResponse({
-            message: "pong",
-            timestamp: new Date().toISOString(),
-            sandboxStatus: "initializing",
-            error: message
-          }, 202); // 202 Accepted - processing in progress
-        }
-      }
-
-      // Session Management APIs
-      if (pathname === "/api/session/create" && request.method === "POST") {
-        const body = await parseJsonBody(request);
-        const sessionId = body.sessionId || `session_${Date.now()}_${generateSecureRandomString()}`;
-
-        // Sessions are managed automatically by the SDK, just return the ID
-        return jsonResponse(sessionId);
-      }
-
-      if (pathname.startsWith("/api/session/clear/") && request.method === "POST") {
-        const sessionId = pathname.split("/").pop();
-
-        // In a real implementation, you might want to clean up session state
-        // For now, just return success
-        return jsonResponse({ message: "Session cleared", sessionId });
-      }
-
-      // Fallback: serve static assets for all other requests
-      return env.ASSETS.fetch(request);
-
-    } catch (error) {
-      console.error("API Error:", error);
-      const message = error instanceof Error ? error.message : String(error);
-      return errorResponse(`Internal server error: ${message}`, 500);
-    }
-  },
-};
+  }
 
 export default apiRouter;

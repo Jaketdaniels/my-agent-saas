@@ -1,5 +1,5 @@
 import type { Sandbox } from "@cloudflare/sandbox";
-import { errorResponse, jsonResponse, parseJsonBody } from "../http";
+import { errorResponse, jsonResponse, parseJsonBody } from "./http";
 
 type MkdirBody = { path?: string; recursive?: boolean };
 
@@ -13,7 +13,7 @@ export async function createDirectory(sandbox: Sandbox<unknown>, request: Reques
     }
 
     await sandbox.mkdir(path, { recursive });
-    return jsonResponse({ 
+    return jsonResponse({
       success: true,
       message: "Directory created",
       path,

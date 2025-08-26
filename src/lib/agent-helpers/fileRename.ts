@@ -1,5 +1,5 @@
 import type { Sandbox } from "@cloudflare/sandbox";
-import { errorResponse, jsonResponse, parseJsonBody } from "../http";
+import { errorResponse, jsonResponse, parseJsonBody } from "./http";
 
 type RenameFileBody = { oldPath?: string; newPath?: string };
 export async function renameFile(sandbox: Sandbox<unknown>, request: Request) {
@@ -12,7 +12,7 @@ export async function renameFile(sandbox: Sandbox<unknown>, request: Request) {
     }
 
     await sandbox.renameFile(oldPath, newPath);
-    return jsonResponse({ 
+    return jsonResponse({
       success: true,
       message: "File renamed",
       oldPath,

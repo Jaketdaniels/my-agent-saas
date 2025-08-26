@@ -1,5 +1,5 @@
 import type { Sandbox } from "@cloudflare/sandbox";
-import { errorResponse, jsonResponse } from "../http";
+import { errorResponse, jsonResponse } from "./http";
 
 export const listProcesses = async (sandbox: Sandbox<unknown>) => {
     if (typeof sandbox.listProcesses === 'function') {

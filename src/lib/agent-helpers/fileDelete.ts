@@ -1,5 +1,5 @@
 import type { Sandbox } from "@cloudflare/sandbox";
-import { errorResponse, jsonResponse, parseJsonBody } from "../http";
+import { errorResponse, jsonResponse, parseJsonBody } from "./http";
 
 type DeleteFileBody = { path?: string };
 export async function deleteFile(sandbox: Sandbox<unknown>, request: Request) {
@@ -12,7 +12,7 @@ export async function deleteFile(sandbox: Sandbox<unknown>, request: Request) {
     }
 
     await sandbox.deleteFile(path);
-    return jsonResponse({ 
+    return jsonResponse({
       success: true,
       message: "File deleted",
       path,

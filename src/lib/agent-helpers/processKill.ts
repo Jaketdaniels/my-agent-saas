@@ -1,5 +1,5 @@
 import type { Sandbox } from "@cloudflare/sandbox";
-import { errorResponse, jsonResponse } from "../http";
+import { errorResponse, jsonResponse } from "./http";
 
 export async function killProcesses(sandbox: Sandbox<unknown>, pathname: string) {
     const processId = pathname.split("/").pop();

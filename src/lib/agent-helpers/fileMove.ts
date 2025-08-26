@@ -1,5 +1,5 @@
 import type { Sandbox } from "@cloudflare/sandbox";
-import { errorResponse, jsonResponse, parseJsonBody } from "../http";
+import { errorResponse, jsonResponse, parseJsonBody } from "./http";
 
 type MoveFileBody = { sourcePath?: string; destinationPath?: string };
 export async function moveFile(sandbox: Sandbox<unknown>, request: Request) {
@@ -12,7 +12,7 @@ export async function moveFile(sandbox: Sandbox<unknown>, request: Request) {
     }
 
     await sandbox.moveFile(sourcePath, destinationPath);
-    return jsonResponse({ 
+    return jsonResponse({
       success: true,
       message: "File moved",
       sourcePath,

@@ -1,5 +1,5 @@
 import type { Sandbox } from "@cloudflare/sandbox";
-import { errorResponse, jsonResponse, parseJsonBody } from "../http";
+import { errorResponse, jsonResponse, parseJsonBody } from "./http";
 
 type ListFilesBody = { path?: string; options?: { recursive?: boolean } };
 export async function listFiles(sandbox: Sandbox<unknown>, request: Request) {
@@ -12,9 +12,9 @@ export async function listFiles(sandbox: Sandbox<unknown>, request: Request) {
     }
 
     const result = await sandbox.listFiles(path, options);
-    return jsonResponse({ 
+    return jsonResponse({
       success: true,
-      path, 
+      path,
       files: result.files,
       count: result.files.length,
       timestamp: new Date().toISOString()

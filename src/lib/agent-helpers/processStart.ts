@@ -1,5 +1,5 @@
 import type { Sandbox } from "@cloudflare/sandbox";
-import { errorResponse, jsonResponse, parseJsonBody } from "../http";
+import { errorResponse, jsonResponse, parseJsonBody } from "./http";
 
 export async function startProcess(sandbox: Sandbox<unknown>, request: Request) {
     const body = await parseJsonBody(request);

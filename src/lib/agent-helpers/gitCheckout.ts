@@ -1,5 +1,5 @@
 import type { Sandbox } from "@cloudflare/sandbox";
-import { errorResponse, jsonResponse, parseJsonBody } from "../http";
+import { errorResponse, jsonResponse, parseJsonBody } from "./http";
 
 type GitCheckoutBody = { repoUrl?: string; branch?: string; targetDir?: string };
 
@@ -14,8 +14,8 @@ export async function gitCheckout(sandbox: Sandbox<unknown>, request: Request) {
 
     const actualBranch = branch || "main";
     await sandbox.gitCheckout(repoUrl, { branch: actualBranch, targetDir });
-    
-    return jsonResponse({ 
+
+    return jsonResponse({
       success: true,
       message: "Repository checked out",
       repoUrl,

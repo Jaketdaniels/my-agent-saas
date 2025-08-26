@@ -1,5 +1,5 @@
 import type { Sandbox } from "@cloudflare/sandbox";
-import { errorResponse, jsonResponse, parseJsonBody } from "../http";
+import { errorResponse, jsonResponse, parseJsonBody } from "./http";
 
 type ReadFileBody = { path?: string; encoding?: 'utf8' | 'base64' };
 export async function readFile(sandbox: Sandbox<unknown>, request: Request) {
@@ -12,9 +12,9 @@ export async function readFile(sandbox: Sandbox<unknown>, request: Request) {
     }
 
     const result = await sandbox.readFile(path, { encoding });
-    return jsonResponse({ 
+    return jsonResponse({
       success: true,
-      path, 
+      path,
       content: result.content, // Extract the actual content string from the response
       timestamp: new Date().toISOString()
     });
