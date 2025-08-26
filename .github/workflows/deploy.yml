@@ -72,32 +72,15 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-        with:
-          install: true
-          driver-opts: |
-            image=moby/buildkit:latest
-          buildkitd-flags: --debug
-          
-      - name: Cache Docker layers
-        uses: actions/cache@v4
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ hashFiles('Dockerfile') }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
+      - name: Set Docker platform for Cloudflare Containers
+        run: |
+          echo "DOCKER_DEFAULT_PLATFORM=linux/amd64" >> $GITHUB_ENV
+          echo "DOCKER_BUILDKIT=1" >> $GITHUB_ENV
         
       - name: Verify Docker availability
         run: |
           docker --version
-          docker buildx version
-          # Ensure linux/amd64 platform is available for Cloudflare Containers
-          docker buildx create --use --platform=linux/amd64 --name container-builder || true
-          docker buildx inspect --bootstrap
-
-      - name: Set Docker platform for Cloudflare Containers
-        run: echo "DOCKER_DEFAULT_PLATFORM=linux/amd64" >> $GITHUB_ENV
+          docker info
 
       - name: Set D1 environment variables
         id: set-d1-vars
@@ -113,6 +96,7 @@ jobs:
         
       - name: Patch worker with Durable Object exports
         run: node scripts/patch-worker.js
+        
         
       - name: Deploy with Wrangler directly  
         run: |
