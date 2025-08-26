@@ -3,8 +3,6 @@ import { getRequestContext } from "@cloudflare/next-on-pages";
 import { requireApiAuth } from "@/lib/auth";
 import { z } from "zod";
 
-export const runtime = "edge";
-
 const writeFileSchema = z.object({
   path: z.string().min(1, "Path is required"),
   content: z.string(),

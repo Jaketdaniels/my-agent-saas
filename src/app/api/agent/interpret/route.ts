@@ -4,8 +4,6 @@ import { requireApiAuth } from "@/lib/auth";
 import { agentInterpretSchema } from "@/schemas/agent-interpret.schema";
 import { z } from "zod";
 
-export const runtime = "edge";
-
 export async function POST(request: NextRequest) {
   try {
     // Require authentication
