@@ -41,8 +41,10 @@ export async function POST(request: NextRequest) {
 
     const { message, code, language } = validatedData;
 
-    // Import sandbox SDK dynamically for edge runtime
-    const { getSandbox } = await import('@cloudflare/sandbox');
+  // Import sandbox SDK dynamically at runtime in a way that avoids static bundling
+  // so that Cloudflare's runtime resolves it.
+  const modName = '@cloudflare/sandbox' as const;
+  const { getSandbox } = await (Function('m', 'return import(m)'))(modName);
 
     // Get sandbox instance using correct env property name
     const sandbox = getSandbox(env.Sandbox, `user-session-${Date.now()}`);
