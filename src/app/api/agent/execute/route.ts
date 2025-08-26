@@ -3,7 +3,6 @@ import { getRequestContext } from '@cloudflare/next-on-pages';
 import { requireApiAuth } from '@/lib/auth';
 import { z } from 'zod';
 
-export const runtime = 'edge';
 
 // Request validation schema
 const executeSchema = z.object({

@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireApiAuth } from '@/lib/auth';
 import { z } from 'zod';
 
-export const runtime = 'edge';
-
 // File validation schema with 5MB limit
 const fileUploadSchema = z.object({
   files: z.array(
