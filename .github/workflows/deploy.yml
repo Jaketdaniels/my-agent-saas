@@ -27,29 +27,73 @@ jobs:
           node-version: 23
           cache: 'pnpm'
 
+      # Enhanced pnpm store caching with better key strategy
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
       - name: Cache pnpm store
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.pnpm-store
-            ~/.cache/pnpm
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      # Remove Next.js cache - we need fresh builds in CI to avoid compatibility issues
-      - name: Clean Next.js cache
-        run: |
-          rm -rf .next/cache
-          rm -rf .next/.cache
+      # Cache node_modules for faster dependency resolution
+      - name: Cache node_modules
+        id: node-modules-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            node_modules
+            .pnpm
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-modules-${{ hashFiles('**/pnpm-lock.yaml') }}-
+            ${{ runner.os }}-node-modules-
 
-      # Remove OpenNext cache to ensure fresh build in CI
-      - name: Clean previous build artifacts
-        run: |
-          rm -rf .open-next
-          rm -rf .vercel
-          rm -rf .next
+      # Cache Next.js build output with intelligent invalidation
+      - name: Cache Next.js build
+        uses: actions/cache@v4
+        with:
+          path: |
+            .next/cache
+            .next/server
+            .next/static
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx', '**/*.css') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx', '**/*.css') }}-
+            ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-
+            ${{ runner.os }}-nextjs-
 
+      # Cache TypeScript build info for faster type checking
+      - name: Cache TypeScript build
+        uses: actions/cache@v4
+        with:
+          path: |
+            tsconfig.tsbuildinfo
+            **/*.tsbuildinfo
+          key: ${{ runner.os }}-typescript-${{ hashFiles('**/tsconfig.json', '**/tsconfig.*.json') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
+          restore-keys: |
+            ${{ runner.os }}-typescript-${{ hashFiles('**/tsconfig.json', '**/tsconfig.*.json') }}-
+            ${{ runner.os }}-typescript-
+
+      # Cache ESLint for faster linting
+      - name: Cache ESLint
+        uses: actions/cache@v4
+        with:
+          path: |
+            .eslintcache
+            node_modules/.cache/eslint
+          key: ${{ runner.os }}-eslint-${{ hashFiles('.eslintrc*', '**/.eslintrc*') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
+          restore-keys: |
+            ${{ runner.os }}-eslint-${{ hashFiles('.eslintrc*', '**/.eslintrc*') }}-
+            ${{ runner.os }}-eslint-
+
+      # Cache Wrangler with better paths
       - name: Cache Wrangler
         uses: actions/cache@v4
         with:
@@ -58,9 +102,23 @@ jobs:
             ~/.cache/wrangler
             .wrangler
             node_modules/.cache/wrangler
-          key: ${{ runner.os }}-wrangler-${{ hashFiles('wrangler.jsonc') }}
+          key: ${{ runner.os }}-wrangler-${{ hashFiles('wrangler.jsonc') }}-${{ hashFiles('**/package.json') }}
           restore-keys: |
+            ${{ runner.os }}-wrangler-${{ hashFiles('wrangler.jsonc') }}-
             ${{ runner.os }}-wrangler-
+
+      # Clean only if caches miss or on specific conditions
+      - name: Conditional cleanup
+        run: |
+          # Only clean OpenNext artifacts - Next.js cache can be reused
+          rm -rf .open-next
+          rm -rf .vercel
+          
+          # Clean Next.js only if cache restoration failed
+          if [ ! -d ".next/cache" ]; then
+            echo "Next.js cache not found, cleaning build directory"
+            rm -rf .next
+          fi
 
       - name: Create cache directories
         run: |
@@ -70,7 +128,15 @@ jobs:
           mkdir -p node_modules/.cache/wrangler
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile --prefer-offline
+        run: |
+          # Skip installation if node_modules exists and is valid
+          if [ -d "node_modules" ] && [ -f "node_modules/.modules.yaml" ]; then
+            echo "Valid node_modules found, running quick install check"
+            pnpm install --frozen-lockfile --prefer-offline --ignore-scripts
+          else
+            echo "Installing dependencies from scratch"
+            pnpm install --frozen-lockfile --prefer-offline
+          fi
 
       - name: Set Docker platform for Cloudflare Containers
         run: |
@@ -88,11 +154,25 @@ jobs:
           echo "D1_DATABASE_NAME=$(node scripts/get-db-name.mjs)" >> $GITHUB_ENV
           echo "D1_DATABASE_ID=$(node scripts/get-db-id.mjs)" >> $GITHUB_ENV
 
+      # Report cache usage
+      - name: Report cache status
+        run: |
+          echo "=== Cache Status Report ==="
+          echo "Node modules cache: ${{ steps.node-modules-cache.outputs.cache-hit == 'true' && 'HIT' || 'MISS' }}"
+          echo "Next.js directory size: $(du -sh .next 2>/dev/null | cut -f1 || echo 'Not found')"
+          echo "Node modules size: $(du -sh node_modules 2>/dev/null | cut -f1 || echo 'Not found')"
+          echo "=========================="
+
       - name: Migrate local D1 database
         run: pnpm run db:migrate:dev
 
-      - name: Build OpenNext bundle
-        run: pnpm run opennext:build
+      - name: Build OpenNext bundle with timing
+        run: |
+          echo "Starting build at $(date)"
+          START_TIME=$SECONDS
+          pnpm run opennext:build
+          ELAPSED_TIME=$(($SECONDS - $START_TIME))
+          echo "Build completed in ${ELAPSED_TIME} seconds"
         
       - name: Patch worker with Durable Object exports
         run: node scripts/patch-worker.js
@@ -128,3 +208,16 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.CLOUDFLARE_API_TOKEN }}" \
             -H "Content-Type: application/json" \
             --data '{"purge_everything":true}' || echo "Cache purge failed, but deployment succeeded"
+
+      # Post-deployment optimization
+      - name: Post-deployment report
+        if: always()
+        run: |
+          echo "=== Deployment Summary ==="
+          echo "Workflow run: ${{ github.run_number }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Cache sizes:"
+          du -sh ~/.pnpm-store 2>/dev/null || echo "pnpm store: not found"
+          du -sh node_modules 2>/dev/null || echo "node_modules: not found"
+          du -sh .next 2>/dev/null || echo ".next: not found"
+          echo "=========================="
