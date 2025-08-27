@@ -266,7 +266,7 @@ export async function getAllSessionIdsOfUser(userId: string) {
 
   const sessions = await kv.list({ prefix: getSessionKey(userId, "") });
 
-  return sessions.keys.map((session: KVNamespaceListKey) => ({
+  return sessions.keys.map((session) => ({
     key: session.name,
     absoluteExpiration: session.expiration ? new Date(session.expiration * 1000) : undefined
   }))
