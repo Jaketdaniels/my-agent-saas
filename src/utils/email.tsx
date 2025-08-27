@@ -51,9 +51,10 @@ async function sendResendEmail({
   text,
   tags,
 }: ResendEmailOptions) {
-  if (!isProd) {
-    return;
-  }
+  // Remove dev check - allow email sending in all environments
+  // if (!isProd) {
+  //   return;
+  // }
 
   if (!process.env.RESEND_API_KEY) {
     throw new Error("RESEND_API_KEY is not set");
@@ -96,9 +97,10 @@ async function sendBrevoEmail({
   params,
   tags,
 }: BrevoEmailOptions) {
-  if (!isProd) {
-    return;
-  }
+  // Allow email sending in all environments
+  // if (!isProd) {
+  //   return;
+  // }
 
   if (!process.env.BREVO_API_KEY) {
     throw new Error("BREVO_API_KEY is not set");
@@ -192,12 +194,15 @@ export async function sendVerificationEmail({
   username: string;
 }) {
   const verificationUrl = `${SITE_URL}/verify-email?token=${verificationToken}`;
-
-  if (!isProd) {
-    console.warn('\n\n\nVerification url: ', verificationUrl)
-
-    return
-  }
+  
+  // Always log verification URL for debugging
+  console.log('[Email] Verification URL:', verificationUrl);
+  
+  // Allow email sending in all environments for testing
+  // if (!isProd) {
+  //   console.warn('\n\n\nVerification url: ', verificationUrl)
+  //   return
+  // }
 
   const html = await render(VerifyEmail({ verificationLink: verificationUrl, username }));
   const provider = await getEmailProvider();

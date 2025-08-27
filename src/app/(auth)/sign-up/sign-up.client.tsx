@@ -44,8 +44,9 @@ const SignUpPage = ({ redirectPath }: SignUpClientProps) => {
     },
     onSuccess: () => {
       toast.dismiss()
-      toast.success("Account created successfully")
-      window.location.href = redirectPath || REDIRECT_AFTER_SIGN_IN
+      toast.success("Account created! Please check your email to verify your account.")
+      // Redirect to a page that tells them to check their email
+      window.location.href = '/check-email'
     }
   })
 

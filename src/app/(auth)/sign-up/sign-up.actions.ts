@@ -45,9 +45,10 @@ export const signUpAction = createServerAction()
         });
 
         if (existingUser) {
+          // Generic message to prevent user enumeration
           throw new ZSAError(
             "CONFLICT",
-            "Email already taken"
+            "Unable to create account. Please try a different email or sign in instead."
           );
         }
 

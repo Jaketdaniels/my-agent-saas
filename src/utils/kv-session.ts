@@ -72,24 +72,42 @@ export async function getKV() {
     const context = getCloudflareContext();
     
     if (!context || !context.env) {
-      console.error('[KV Session] Failed to get Cloudflare context');
+      console.error('[KV Session] Failed to get Cloudflare context', {
+        hasContext: !!context,
+        hasEnv: !!context?.env,
+        nodeEnv: process.env.NODE_ENV
+      });
       throw new Error("Cloudflare context not available");
     }
     
     const env = context.env as CloudflareEnv;
     
+    // Log available bindings for debugging
+    const bindings = {
+      hasKV: !!env.NEXT_INC_CACHE_KV,
+      hasD1: !!env.NEXT_TAG_CACHE_D1,
+      hasSandbox: !!env.Sandbox,
+      availableKeys: Object.keys(env).filter(k => !k.startsWith('EMAIL') && !k.includes('SECRET'))
+    };
+    
     if (!env.NEXT_INC_CACHE_KV) {
-      console.error('[KV Session] KV namespace NEXT_INC_CACHE_KV not found in env', { 
-        availableKeys: Object.keys(env)
-      });
-      throw new Error("KV namespace NEXT_INC_CACHE_KV not available in Cloudflare context");
+      console.error('[KV Session] KV namespace NEXT_INC_CACHE_KV not found', bindings);
+      throw new Error("KV namespace NEXT_INC_CACHE_KV not available - check wrangler.toml configuration");
     }
     
-    console.log('[KV Session] Successfully got KV namespace');
+    // Test KV connectivity
+    try {
+      await env.NEXT_INC_CACHE_KV.list({ limit: 1 });
+      console.log('[KV Session] KV namespace connected successfully');
+    } catch (testError) {
+      console.error('[KV Session] KV namespace exists but failed connectivity test:', testError);
+      throw new Error("KV namespace exists but is not accessible");
+    }
+    
     return env.NEXT_INC_CACHE_KV;
   } catch (error) {
     console.error('[KV Session] Error accessing KV store:', error);
-    throw new Error("Can't connect to KV store - ensure Cloudflare bindings are properly configured");
+    throw new Error(`Can't connect to KV store: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
 
