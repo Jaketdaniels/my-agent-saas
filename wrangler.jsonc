@@ -21,6 +21,7 @@
   "placement": { "mode": "smart" },
 
   "vars": {
+    "NODE_ENV": "production",
     "EMAIL_FROM": "support@netm8.com",
     "EMAIL_FROM_NAME": "netM8",
     "EMAIL_REPLY_TO": "support@netm8.com"
@@ -64,6 +65,7 @@
     "production": {
       "name": "my-agent-saas-production",
       "vars": {
+        "NODE_ENV": "production",
         "EMAIL_FROM": "support@netm8.com",
         "EMAIL_FROM_NAME": "netM8",
         "EMAIL_REPLY_TO": "support@netm8.com"
