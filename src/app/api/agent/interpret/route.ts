@@ -6,11 +6,15 @@ import { z } from "zod";
 
 export async function POST(request: NextRequest) {
   try {
+    console.log("[API Interpret] Starting request processing");
+    
     // Require authentication
-    await requireApiAuth();
+    const session = await requireApiAuth();
+    console.log("[API Interpret] Auth successful, user:", session.user.id);
 
     // Get Cloudflare context
     const { env } = getCloudflareContext();
+    console.log("[API Interpret] Got Cloudflare context, env keys:", Object.keys(env || {}));
 
     // Validate and parse request body
     let requestBody;
@@ -38,31 +42,81 @@ export async function POST(request: NextRequest) {
     }
 
     const { message, code, language } = validatedData;
+    console.log("[API Interpret] Processing:", { message: message?.substring(0, 50), language });
+
+    // Check if Sandbox binding exists
+    const envAny = env as unknown as { Sandbox?: unknown };
+    if (!envAny?.Sandbox) {
+      console.error("[API Interpret] Sandbox binding not found in env");
+      return NextResponse.json(
+        {
+          result: "",
+          success: false,
+          error: "Sandbox environment not configured. Please check Cloudflare bindings.",
+        } as import("@/types/agent").AgentInterpretResponse,
+        { status: 500 }
+      );
+    }
 
     // Load getSandbox using eval to bypass webpack bundling
+    console.log("[API Interpret] Loading getSandbox...");
     const { loadGetSandbox } = await import("@/lib/cloudflare-runtime");
     const getSandbox = await loadGetSandbox();
+    console.log("[API Interpret] getSandbox loaded successfully");
 
     // Get sandbox instance using correct env property name
     // Cast through unknown first due to CloudflareEnv type limitations
     const envTyped = env as unknown as {
       Sandbox: Parameters<typeof getSandbox>[0];
     };
-    const sandbox = getSandbox(envTyped.Sandbox, `user-session-${Date.now()}`);
+    const sandboxId = `user-${session.user.id}-${Date.now()}`;
+    console.log("[API Interpret] Creating sandbox with ID:", sandboxId);
+    const sandbox = getSandbox(envTyped.Sandbox, sandboxId);
 
     // Create code context
-    const context = await sandbox.createCodeContext({
-      language,
-    });
+    console.log("[API Interpret] Creating code context for language:", language);
+    let context;
+    try {
+      context = await sandbox.createCodeContext({
+        language,
+      });
+    } catch (error) {
+      console.error("[API Interpret] Failed to create code context:", error);
+      return NextResponse.json(
+        {
+          result: "",
+          success: false,
+          error: `Failed to create code context: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        } as import("@/types/agent").AgentInterpretResponse,
+        { status: 500 }
+      );
+    }
 
     // Execute code
-    const execution = await sandbox.runCode(code || message || "", {
-      context,
-      onStdout: (output: unknown) => {
-        const outputObj = output as { text?: string };
-        console.log("Sandbox output:", outputObj.text);
-      },
-    });
+    console.log("[API Interpret] Executing code...");
+    const codeToExecute = code || message || "print('Hello from netM8 Agent!')";
+    let execution;
+    try {
+      execution = await sandbox.runCode(codeToExecute, {
+        context,
+        onStdout: (output: unknown) => {
+          const outputObj = output as { text?: string };
+          console.log("[API Interpret] Sandbox output:", outputObj.text);
+        },
+      });
+    } catch (error) {
+      console.error("[API Interpret] Execution failed:", error);
+      return NextResponse.json(
+        {
+          result: "",
+          success: false,
+          error: `Execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        } as import("@/types/agent").AgentInterpretResponse,
+        { status: 500 }
+      );
+    }
+
+    console.log("[API Interpret] Execution completed, has error:", !!execution.error);
 
     // Check if there was an execution error
     if (execution.error) {

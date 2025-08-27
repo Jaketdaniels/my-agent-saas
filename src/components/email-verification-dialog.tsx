@@ -74,7 +74,7 @@ export function EmailVerificationDialog() {
           <DialogTitle>Verify your email</DialogTitle>
           <DialogDescription>
             Please verify your email address to access all features. We sent a verification link to {session.user.email}.
-            The verification link will expire in {Math.floor(EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS / 3600)} hours.
+            The verification link will expire in {Math.floor(EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS / 60)} minutes.
 
             {!isProd && (
               <Alert

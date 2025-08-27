@@ -111,8 +111,12 @@ export async function middleware(request: NextRequest) {
   }
   
   // Normal operation (when lockdown is disabled)
-  // Handle admin routes with proper authentication
-  if (pathname.startsWith('/admin')) {
+  
+  // Protected routes that require authentication
+  const protectedRoutes = ['/dashboard', '/agent-chat', '/settings', '/admin']
+  const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route))
+  
+  if (isProtectedRoute) {
     try {
       const session = await getSessionFromCookie()
       
@@ -122,23 +126,33 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(signInUrl)
       }
       
-      if (session.user.role !== 'admin') {
+      // Check email verification for all protected routes
+      if (!session.user.emailVerified) {
+        console.warn(`[Middleware] Unverified user trying to access protected route: ${session.user.email}`)
+        // Redirect to a page asking them to verify their email
+        return NextResponse.redirect(new URL('/verify-email-required', request.url))
+      }
+      
+      // Additional check for admin routes
+      if (pathname.startsWith('/admin') && session.user.role !== 'admin') {
         return NextResponse.redirect(new URL('/dashboard', request.url))
       }
       
-      // Additional security: Check IP whitelist (if configured)
-      const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 
-                       request.headers.get('cf-connecting-ip') || 
-                       request.headers.get('x-real-ip')
-      const allowedIps = process.env.ADMIN_ALLOWED_IPS?.split(',').map(ip => ip.trim()) || []
-      
-      if (allowedIps.length > 0 && clientIp && !allowedIps.includes(clientIp)) {
-        console.warn(`[Middleware] Admin access blocked for IP: ${clientIp}`)
-        return NextResponse.redirect(new URL('/403', request.url))
+      // Additional security for admin: Check IP whitelist (if configured)
+      if (pathname.startsWith('/admin')) {
+        const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 
+                         request.headers.get('cf-connecting-ip') || 
+                         request.headers.get('x-real-ip')
+        const allowedIps = process.env.ADMIN_ALLOWED_IPS?.split(',').map(ip => ip.trim()) || []
+        
+        if (allowedIps.length > 0 && clientIp && !allowedIps.includes(clientIp)) {
+          console.warn(`[Middleware] Admin access blocked for IP: ${clientIp}`)
+          return NextResponse.redirect(new URL('/403', request.url))
+        }
       }
       
     } catch (error) {
-      console.error('[Middleware] Admin auth error:', error)
+      console.error('[Middleware] Protected route auth error:', error)
       return NextResponse.redirect(new URL('/sign-in', request.url))
     }
   }

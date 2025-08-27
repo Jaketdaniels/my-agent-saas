@@ -5,7 +5,7 @@ import type { ChangeEvent, KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { toast } from "react-hot-toast";
+import { toast } from "sonner";
 
 enum OutputType {
   Text = "text",
@@ -150,6 +150,8 @@ export function ChatInterface() {
     setIsLoading(true);
 
     try {
+      console.log("[AgentChat] Sending message to API:", input);
+      
       const response = await fetch("/api/agent/interpret", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -160,11 +162,30 @@ export function ChatInterface() {
         }),
       });
 
+      console.log("[AgentChat] Response status:", response.status);
+
       if (!response.ok) {
-        throw new Error("Failed to get response");
+        const errorData = await response.text();
+        console.error("[AgentChat] API error response:", errorData);
+        throw new Error(`API returned ${response.status}: ${errorData}`);
       }
 
-      const data = await response.json() as { result?: string; outputs?: unknown[] };
+      const data = await response.json() as { result?: string; outputs?: unknown[]; error?: string; success?: boolean };
+      console.log("[AgentChat] API response data:", data);
+
+      // Check if there was an error in execution
+      if (data.error) {
+        const errorMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: Role.Assistant,
+          content: `Error: ${data.error}`,
+          timestamp: new Date(),
+          outputs: [],
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+        toast.error("Code execution failed");
+        return;
+      }
 
       // Transform outputs to match Output type if they exist
       const transformedOutputs: Output[] = Array.isArray(data.outputs)
@@ -188,7 +209,7 @@ export function ChatInterface() {
             return {
               id: `output-${index}`,
               type: OutputType.Text,
-              data: JSON.stringify(output),
+              data: String(output),
             };
           })
         : [];
@@ -196,15 +217,29 @@ export function ChatInterface() {
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: Role.Assistant,
-        content: data.result || "No response",
+        content: data.result || "Command executed successfully",
         timestamp: new Date(),
         outputs: transformedOutputs,
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
+      
+      if (data.success !== false) {
+        toast.success("Message sent successfully");
+      }
     } catch (error) {
-      console.error("Chat error:", error);
-      toast.error("Failed to send message");
+      console.error("[AgentChat] Error:", error);
+      
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: Role.Assistant,
+        content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        timestamp: new Date(),
+        outputs: [],
+      };
+      
+      setMessages((prev) => [...prev, errorMessage]);
+      toast.error(error instanceof Error ? error.message : "Failed to send message");
     } finally {
       setIsLoading(false);
     }

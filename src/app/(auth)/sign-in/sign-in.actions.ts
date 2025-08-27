@@ -57,6 +57,15 @@ export const signInAction = createServerAction()
             );
           }
 
+          // Check if email is verified
+          if (!user.emailVerified) {
+            console.warn('[Sign In] Attempt to login with unverified email:', user.email);
+            throw new ZSAError(
+              "FORBIDDEN",
+              "Please verify your email address before signing in. Check your inbox for the verification email."
+            );
+          }
+
           // Create session
           try {
             await createAndStoreSession(user.id, "password")

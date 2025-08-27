@@ -2,12 +2,12 @@ import type { Route } from "next"
 
 export const SITE_NAME = "netM8 Agents"
 export const SITE_DESCRIPTION = "General purpose agent platform"
-export const SITE_URL = process.env.NODE_ENV === "development" ? "http://localhost:3000" : "https://nextjs-saas-template.agenticdev.agency"
-export const GITHUB_REPO_URL = "https://github.com/Jaketdaniels"
+export const SITE_URL = process.env.NODE_ENV === "development" ? "http://localhost:3000" : "https://netm8.com"
+export const GITHUB_REPO_URL = "https://github.com/netm8"
 
 export const SITE_DOMAIN = new URL(SITE_URL).hostname
 export const PASSWORD_RESET_TOKEN_EXPIRATION_SECONDS = 24 * 60 * 60 // 24 hours
-export const EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS = 24 * 60 * 60 // 24 hours
+export const EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS = 30 * 60 // 30 minutes
 export const MAX_SESSIONS_PER_USER = 5;
 export const MAX_TEAMS_CREATED_PER_USER = 3;
 export const MAX_TEAMS_JOINED_PER_USER = 10;

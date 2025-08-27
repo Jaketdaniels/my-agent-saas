@@ -5,7 +5,7 @@ import { getDB } from "@/db"
 import { userTable } from "@/db/schema"
 import { signUpSchema } from "@/schemas/signup.schema";
 import { hashPassword } from "@/utils/password-hasher";
-import { createSession, generateSessionToken, setSessionTokenCookie, canSignUp } from "@/utils/auth";
+import { canSignUp } from "@/utils/auth";
 import { eq } from "drizzle-orm";
 import { createId } from "@paralleldrive/cuid2";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
@@ -73,21 +73,9 @@ export const signUpAction = createServerAction()
         }
 
         try {
-          // Create a session
-          const sessionToken = generateSessionToken();
-          const session = await createSession({
-            token: sessionToken,
-            userId: user.id,
-            authenticationType: "password",
-          });
-
-          // Set the session cookie
-          await setSessionTokenCookie({
-            token: sessionToken,
-            userId: user.id,
-            expiresAt: new Date(session.expiresAt)
-          });
-
+          // DO NOT create a session yet - user must verify email first
+          // This is critical for security - unverified users should not have access
+          
           // Generate verification token
           const verificationToken = createId();
           const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TOKEN_EXPIRATION_SECONDS * 1000);

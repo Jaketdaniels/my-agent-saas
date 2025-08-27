@@ -2,6 +2,7 @@ import "server-only";
 
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { headers } from "next/headers";
+import type { CloudflareEnv } from "@/types/cloudflare";
 
 import { getUserFromDB, getUserTeamsWithPermissions } from "@/utils/auth";
 import { getIP } from "./get-IP";
@@ -68,23 +69,20 @@ export const CURRENT_SESSION_VERSION = 2;
 export async function getKV() {
   try {
     // Use getCloudflareContext from @opennextjs/cloudflare
-    const { env } = getCloudflareContext();
+    const context = getCloudflareContext();
     
-    if (!env || !env.NEXT_INC_CACHE_KV) {
-      console.error('[KV Session] Failed to get KV namespace from Cloudflare context', { 
-        hasEnv: !!env,
-        hasKV: !!(env?.NEXT_INC_CACHE_KV),
-        availableKeys: env ? Object.keys(env) : []
+    if (!context || !context.env) {
+      console.error('[KV Session] Failed to get Cloudflare context');
+      throw new Error("Cloudflare context not available");
+    }
+    
+    const env = context.env as CloudflareEnv;
+    
+    if (!env.NEXT_INC_CACHE_KV) {
+      console.error('[KV Session] KV namespace NEXT_INC_CACHE_KV not found in env', { 
+        availableKeys: Object.keys(env)
       });
-      
-      // Try alternative KV bindings that might be available
-      const envWithKV = env as CloudflareEnv & { KV?: KVNamespace };
-      if (envWithKV?.KV) {
-        console.log('[KV Session] Found alternative KV binding');
-        return envWithKV.KV;
-      }
-      
-      throw new Error("KV namespace not available in Cloudflare context");
+      throw new Error("KV namespace NEXT_INC_CACHE_KV not available in Cloudflare context");
     }
     
     console.log('[KV Session] Successfully got KV namespace');
@@ -109,6 +107,8 @@ export async function createKVSession({
   passkeyCredentialId,
   teams
 }: CreateKVSessionParams): Promise<KVSession> {
+  console.log('[KV Session] Creating session for user:', userId);
+  
   let cf;
   try {
     const context = getCloudflareContext();
@@ -120,11 +120,18 @@ export async function createKVSession({
   
   const headersList = await headers();
   
-  const kv = await getKV();
+  let kv;
+  try {
+    kv = await getKV();
+    console.log('[KV Session] Got KV namespace successfully');
+  } catch (error) {
+    console.error('[KV Session] Failed to get KV namespace:', error);
+    throw new Error(`Failed to get KV store: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 
   if (!kv) {
     console.error('[KV Session] KV store is null after getKV() call');
-    throw new Error("Can't connect to KV store");
+    throw new Error("KV store returned null");
   }
 
   const session: KVSession = {
@@ -164,13 +171,24 @@ export async function createKVSession({
     await deleteKVSession(oldestSessionId, userId);
   }
 
-  await kv.put(
-    getSessionKey(userId, sessionId),
-    JSON.stringify(session),
-    {
-      expirationTtl: Math.floor((expiresAt.getTime() - Date.now()) / 1000)
-    }
-  );
+  const key = getSessionKey(userId, sessionId);
+  const ttl = Math.floor((expiresAt.getTime() - Date.now()) / 1000);
+  
+  console.log('[KV Session] Storing session with key:', key, 'TTL:', ttl);
+  
+  try {
+    await kv.put(
+      key,
+      JSON.stringify(session),
+      {
+        expirationTtl: ttl
+      }
+    );
+    console.log('[KV Session] Session stored successfully');
+  } catch (error) {
+    console.error('[KV Session] Failed to store session in KV:', error);
+    throw new Error(`Failed to store session: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 
   return session;
 }
@@ -266,7 +284,7 @@ export async function getAllSessionIdsOfUser(userId: string) {
 
   const sessions = await kv.list({ prefix: getSessionKey(userId, "") });
 
-  return sessions.keys.map((session) => ({
+  return sessions.keys.map((session: { name: string; expiration?: number }) => ({
     key: session.name,
     absoluteExpiration: session.expiration ? new Date(session.expiration * 1000) : undefined
   }))
