@@ -3,8 +3,8 @@
 import { type ComponentType } from "react"
 import type { Route } from 'next'
 import {
-  Users,
   Shield,
+  Activity,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -33,9 +33,9 @@ export type NavMainItem = NavItem & {
 
 const adminNavItems: NavMainItem[] = [
   {
-    title: "Users",
+    title: "Dashboard",
     url: "/admin",
-    icon: Users,
+    icon: Activity,
     isActive: true,
   },
 ]

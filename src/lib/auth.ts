@@ -3,6 +3,7 @@ import "server-only";
 import { getSessionFromCookie } from "@/utils/auth";
 import { ZSAError } from "zsa";
 import { redirect } from "next/navigation";
+import { ROLES_ENUM } from "@/db/schema";
 
 /**
  * Require authentication for a route or API endpoint.
@@ -74,4 +75,49 @@ export async function requireVerifiedApiAuth() {
   }
   
   return session;
+}
+
+/**
+ * Require admin role for a route.
+ * Redirects to sign-in page if not authenticated, or home page if not admin.
+ */
+export async function requireAdminAuth() {
+  const session = await getSessionFromCookie();
+  
+  if (!session) {
+    redirect('/sign-in');
+  }
+  
+  if (session.user.role !== ROLES_ENUM.ADMIN) {
+    redirect('/dashboard');
+  }
+  
+  return session;
+}
+
+/**
+ * Require admin role for API routes.
+ * Throws ZSAError if not authenticated or not admin.
+ */
+export async function requireAdminApiAuth() {
+  const session = await getSessionFromCookie();
+  
+  if (!session) {
+    throw new ZSAError("NOT_AUTHORIZED", "Not authenticated");
+  }
+  
+  if (session.user.role !== ROLES_ENUM.ADMIN) {
+    throw new ZSAError("FORBIDDEN", "Admin access required");
+  }
+  
+  return session;
+}
+
+/**
+ * Check if current user is an admin.
+ * Returns true if user is authenticated and has admin role.
+ */
+export async function isAdmin(): Promise<boolean> {
+  const session = await getSessionFromCookie();
+  return session?.user.role === ROLES_ENUM.ADMIN;
 }
