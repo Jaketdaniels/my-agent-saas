@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 
-export const runtime = 'edge';
+// Remove edge runtime - OpenNext doesn't support it in regular API routes
+// export const runtime = 'edge';
 
 /**
  * Readiness probe endpoint for load balancers and orchestrators

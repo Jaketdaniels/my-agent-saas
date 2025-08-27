@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { getRequestContext } from '@cloudflare/next-on-pages';
 import { getDB } from '@/db';
 import { sql } from 'drizzle-orm';
 
-export const runtime = 'edge';
+// Remove edge runtime - OpenNext doesn't support it in regular API routes
+// export const runtime = 'edge';
 
 interface HealthStatus {
   status: 'healthy' | 'degraded' | 'unhealthy';
@@ -11,8 +11,6 @@ interface HealthStatus {
   uptime: number;
   checks: {
     database: { status: boolean; latency?: number; error?: string };
-    kv: { status: boolean; latency?: number; error?: string };
-    memory: { status: boolean; used?: number; limit?: number };
     environment: { status: boolean; mode?: string };
   };
   requestId?: string | null;
@@ -28,8 +26,6 @@ export async function GET(request: Request) {
     uptime: Date.now() - startTime,
     checks: {
       database: { status: false },
-      kv: { status: false },
-      memory: { status: true },
       environment: { status: true, mode: process.env.NODE_ENV }
     },
     requestId
@@ -51,53 +47,6 @@ export async function GET(request: Request) {
       error: error instanceof Error ? error.message : 'Unknown error'
     };
     health.status = 'degraded';
-  }
-
-  // Check KV store
-  const kvStart = Date.now();
-  try {
-    const context = getRequestContext();
-    const kv = context?.env?.NEXT_INC_CACHE_KV;
-    
-    if (kv) {
-      // Attempt a simple KV operation
-      const testKey = '__health_check__';
-      await kv.put(testKey, Date.now().toString(), { expirationTtl: 60 });
-      const value = await kv.get(testKey);
-      
-      health.checks.kv = {
-        status: !!value,
-        latency: Date.now() - kvStart
-      };
-    } else {
-      health.checks.kv = {
-        status: false,
-        error: 'KV namespace not available'
-      };
-      health.status = 'degraded';
-    }
-  } catch (error) {
-    health.checks.kv = {
-      status: false,
-      latency: Date.now() - kvStart,
-      error: error instanceof Error ? error.message : 'Unknown error'
-    };
-    health.status = 'degraded';
-  }
-
-  // Check memory usage (approximate for Workers)
-  try {
-    // Workers have a 128MB memory limit
-    const memoryLimit = 128 * 1024 * 1024; // 128MB in bytes
-    // This is a rough estimate as Workers don't expose actual memory usage
-    health.checks.memory = {
-      status: true,
-      limit: memoryLimit
-    };
-  } catch {
-    health.checks.memory = {
-      status: false
-    };
   }
 
   // Determine overall health status
