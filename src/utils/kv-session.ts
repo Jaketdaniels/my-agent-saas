@@ -73,8 +73,17 @@ export async function getKV() {
     if (!env || !env.NEXT_INC_CACHE_KV) {
       console.error('[KV Session] Failed to get KV namespace from Cloudflare context', { 
         hasEnv: !!env,
-        hasKV: !!(env?.NEXT_INC_CACHE_KV)
+        hasKV: !!(env?.NEXT_INC_CACHE_KV),
+        availableKeys: env ? Object.keys(env) : []
       });
+      
+      // Try alternative KV bindings that might be available
+      const envWithKV = env as CloudflareEnv & { KV?: KVNamespace };
+      if (envWithKV?.KV) {
+        console.log('[KV Session] Found alternative KV binding');
+        return envWithKV.KV;
+      }
+      
       throw new Error("KV namespace not available in Cloudflare context");
     }
     
@@ -257,7 +266,7 @@ export async function getAllSessionIdsOfUser(userId: string) {
 
   const sessions = await kv.list({ prefix: getSessionKey(userId, "") });
 
-  return sessions.keys.map((session) => ({
+  return sessions.keys.map((session: KVNamespaceListKey) => ({
     key: session.name,
     absoluteExpiration: session.expiration ? new Date(session.expiration * 1000) : undefined
   }))
@@ -286,7 +295,7 @@ export async function updateAllSessionsOfUser(userId: string) {
     const session = await kv.get(sessionObj.key);
     if (!session) continue;
 
-    const sessionData = JSON.parse(session) as KVSession;
+    const sessionData = JSON.parse(session as string) as KVSession;
 
     // Only update non-expired sessions
     if (sessionObj.absoluteExpiration && sessionObj.absoluteExpiration.getTime() > Date.now()) {

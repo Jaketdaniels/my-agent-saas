@@ -1,9 +1,16 @@
 import { NextResponse } from 'next/server';
 import { getCurrentSession } from '@/lib/auth';
+import { performanceMonitor } from '@/lib/monitoring/performance';
 
-export async function GET() {
+export async function GET(request: Request) {
+  const requestId = request.headers.get('x-request-id');
+  
   try {
-    const session = await getCurrentSession();
+    const session = await performanceMonitor.measure(
+      'auth.getSession',
+      async () => getCurrentSession(),
+      { requestId }
+    );
     
     if (!session) {
       return NextResponse.json({ authenticated: false }, { status: 401 });
