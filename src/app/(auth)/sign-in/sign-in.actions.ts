@@ -58,11 +58,19 @@ export const signInAction = createServerAction()
           }
 
           // Create session
-          await createAndStoreSession(user.id, "password")
+          try {
+            await createAndStoreSession(user.id, "password")
+          } catch (sessionError) {
+            console.error('[Sign In] Failed to create session:', sessionError);
+            throw new ZSAError(
+              "INTERNAL_SERVER_ERROR",
+              "Failed to create session. Please try again or contact support if the issue persists."
+            );
+          }
 
           return { success: true };
         } catch (error) {
-          console.error(error)
+          console.error('[Sign In] Error during sign-in:', error)
 
           if (error instanceof ZSAError) {
             throw error;
@@ -70,7 +78,7 @@ export const signInAction = createServerAction()
 
           throw new ZSAError(
             "INTERNAL_SERVER_ERROR",
-            "An unexpected error occurred"
+            "An unexpected error occurred during sign-in"
           );
         }
       },

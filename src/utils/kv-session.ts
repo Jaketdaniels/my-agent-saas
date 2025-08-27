@@ -66,8 +66,22 @@ export interface KVSession {
 export const CURRENT_SESSION_VERSION = 2;
 
 export async function getKV() {
-  const { env } = getCloudflareContext();
-  return env.NEXT_INC_CACHE_KV;
+  try {
+    const { env } = getCloudflareContext();
+    
+    if (!env || !env.NEXT_INC_CACHE_KV) {
+      console.error('[KV Session] Failed to get KV namespace from Cloudflare context', { 
+        hasEnv: !!env,
+        hasKV: !!(env?.NEXT_INC_CACHE_KV)
+      });
+      throw new Error("KV namespace not available in Cloudflare context");
+    }
+    
+    return env.NEXT_INC_CACHE_KV;
+  } catch (error) {
+    console.error('[KV Session] Error accessing KV store:', error);
+    throw new Error("Can't connect to KV store - ensure Cloudflare bindings are properly configured");
+  }
 }
 
 export interface CreateKVSessionParams extends Omit<KVSession, "id" | "createdAt" | "expiresAt"> {
@@ -84,11 +98,21 @@ export async function createKVSession({
   passkeyCredentialId,
   teams
 }: CreateKVSessionParams): Promise<KVSession> {
-  const { cf } = getCloudflareContext();
+  let cf;
+  try {
+    const context = getCloudflareContext();
+    cf = context.cf;
+  } catch (error) {
+    console.warn('[KV Session] Could not get Cloudflare context for geo data:', error);
+    // Continue without geo data
+  }
+  
   const headersList = await headers();
+  
   const kv = await getKV();
 
   if (!kv) {
+    console.error('[KV Session] KV store is null after getKV() call');
     throw new Error("Can't connect to KV store");
   }
 

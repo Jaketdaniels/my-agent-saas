@@ -1,0 +1,148 @@
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import { getSessionFromCookie } from '@/utils/auth'
+
+// Security lockdown configuration
+const SECURITY_LOCKDOWN = true // Master switch for security lockdown
+const ADMIN_ACCESS_TOKEN = process.env.ADMIN_ACCESS_TOKEN || 'netm8-admin-2025' // Emergency admin access token
+
+// Routes that are always allowed (even during lockdown)
+const ALWAYS_ALLOWED = [
+  '/coming-soon',
+  '/api/health', // Health check endpoint
+]
+
+// Auth routes needed for admin sign-in during lockdown
+const AUTH_ROUTES_FOR_ADMIN = [
+  '/sign-in',
+  '/api/auth',
+  '/sso/google',
+  '/api/get-session',
+]
+
+// Static asset patterns
+const STATIC_ASSETS = [
+  '/_next',
+  '/favicon.ico',
+  '/robots.txt',
+  '/sitemap.xml',
+  '/.well-known',
+]
+
+export async function middleware(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
+  const url = request.nextUrl
+  
+  // Allow static assets always
+  if (STATIC_ASSETS.some(path => pathname.startsWith(path))) {
+    return NextResponse.next()
+  }
+  
+  // Security lockdown mode - redirect everything to coming soon except allowed paths
+  if (SECURITY_LOCKDOWN) {
+    // Check if this path is always allowed
+    if (ALWAYS_ALLOWED.includes(pathname)) {
+      return NextResponse.next()
+    }
+    
+    // Check for authenticated admin session first
+    try {
+      const session = await getSessionFromCookie()
+      
+      if (session && session.user.role === 'admin') {
+        // Authenticated admin - allow access to everything
+        console.log('[Middleware] Admin user authenticated, allowing access:', pathname)
+        return NextResponse.next()
+      }
+    } catch (error) {
+      // Session check failed - continue with other checks
+      console.warn('[Middleware] Session check failed:', error)
+    }
+    
+    // Check for emergency admin access token
+    const emergencyToken = url.searchParams.get('admin_token')
+    const cookieToken = request.cookies.get('admin_token_temp')?.value
+    const hasValidToken = (emergencyToken && emergencyToken === ADMIN_ACCESS_TOKEN) || 
+                         (cookieToken && cookieToken === ADMIN_ACCESS_TOKEN)
+    
+    if (hasValidToken) {
+      // Allow auth routes for admin sign-in with token
+      if (AUTH_ROUTES_FOR_ADMIN.some(route => pathname.startsWith(route))) {
+        // Set cookie to maintain token during auth flow
+        const response = NextResponse.next()
+        if (emergencyToken) {
+          response.cookies.set('admin_token_temp', emergencyToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 60 * 30, // 30 minutes to complete sign-in
+          })
+        }
+        return response
+      }
+      
+      // If trying to access admin routes with token but no session
+      if (pathname.startsWith('/admin')) {
+        // Redirect to sign-in with callback URL
+        const signInUrl = new URL('/sign-in', request.url)
+        signInUrl.searchParams.set('callbackUrl', pathname)
+        if (emergencyToken) {
+          signInUrl.searchParams.set('admin_token', emergencyToken)
+        }
+        return NextResponse.redirect(signInUrl)
+      }
+    }
+    
+    // Not allowed - redirect to coming soon page
+    if (pathname !== '/coming-soon') {
+      console.log('[Middleware] Blocking access to:', pathname, '- redirecting to coming soon')
+      return NextResponse.redirect(new URL('/coming-soon', request.url))
+    }
+  }
+  
+  // Normal operation (when lockdown is disabled)
+  // Handle admin routes with proper authentication
+  if (pathname.startsWith('/admin')) {
+    try {
+      const session = await getSessionFromCookie()
+      
+      if (!session) {
+        const signInUrl = new URL('/sign-in', request.url)
+        signInUrl.searchParams.set('callbackUrl', pathname)
+        return NextResponse.redirect(signInUrl)
+      }
+      
+      if (session.user.role !== 'admin') {
+        return NextResponse.redirect(new URL('/dashboard', request.url))
+      }
+      
+      // Additional security: Check IP whitelist (if configured)
+      const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || request.ip
+      const allowedIps = process.env.ADMIN_ALLOWED_IPS?.split(',').map(ip => ip.trim()) || []
+      
+      if (allowedIps.length > 0 && clientIp && !allowedIps.includes(clientIp)) {
+        console.warn(`[Middleware] Admin access blocked for IP: ${clientIp}`)
+        return NextResponse.redirect(new URL('/403', request.url))
+      }
+      
+    } catch (error) {
+      console.error('[Middleware] Admin auth error:', error)
+      return NextResponse.redirect(new URL('/sign-in', request.url))
+    }
+  }
+  
+  return NextResponse.next()
+}
+
+export const config = {
+  matcher: [
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * We want to run middleware on all other routes including API routes
+     */
+    '/((?!_next/static|_next/image|favicon.ico).*)',
+  ]
+}
