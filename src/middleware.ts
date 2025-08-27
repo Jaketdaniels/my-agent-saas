@@ -117,7 +117,9 @@ export async function middleware(request: NextRequest) {
       }
       
       // Additional security: Check IP whitelist (if configured)
-      const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || request.ip
+      const clientIp = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || 
+                       request.headers.get('cf-connecting-ip') || 
+                       request.headers.get('x-real-ip')
       const allowedIps = process.env.ADMIN_ALLOWED_IPS?.split(',').map(ip => ip.trim()) || []
       
       if (allowedIps.length > 0 && clientIp && !allowedIps.includes(clientIp)) {
