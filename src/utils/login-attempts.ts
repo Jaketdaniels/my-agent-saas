@@ -160,4 +160,4 @@ export async function getAttemptCount(email: string): Promise<number> {
   }
 
   return record.attempts;
-}// Temporary debug
+}
