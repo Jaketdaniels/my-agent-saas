@@ -8,6 +8,7 @@ import { verifyPassword } from "@/utils/password-hasher";
 import { createAndStoreSession } from "@/utils/auth";
 import { eq } from "drizzle-orm";
 import { RATE_LIMITS, withRateLimit } from "@/utils/with-rate-limit";
+import { isAccountLocked, recordFailedAttempt, clearLoginAttempts } from "@/utils/login-attempts";
 
 export const signInAction = createServerAction()
   .input(signInSchema)
@@ -17,12 +18,23 @@ export const signInAction = createServerAction()
         const db = getDB();
 
         try {
+          // Check if account is locked
+          const lockStatus = await isAccountLocked(input.email);
+          if (lockStatus.locked) {
+            throw new ZSAError(
+              "FORBIDDEN",
+              `Account temporarily locked due to too many failed attempts. Please try again in ${lockStatus.minutesRemaining} minutes.`
+            );
+          }
+
           // Find user by email
           const user = await db.query.userTable.findFirst({
             where: eq(userTable.email, input.email),
           });
 
           if (!user) {
+            // Record failed attempt even if user doesn't exist (prevent enumeration)
+            await recordFailedAttempt(input.email);
             throw new ZSAError(
               "NOT_AUTHORIZED",
               "Invalid email or password"
@@ -51,11 +63,26 @@ export const signInAction = createServerAction()
           });
 
           if (!isValid) {
+            // Record failed attempt
+            const attemptResult = await recordFailedAttempt(input.email);
+            
+            if (attemptResult.lockout) {
+              throw new ZSAError(
+                "FORBIDDEN",
+                "Too many failed attempts. Account temporarily locked for 15 minutes."
+              );
+            }
+            
             throw new ZSAError(
               "NOT_AUTHORIZED",
-              "Invalid email or password"
+              attemptResult.attemptsRemaining > 0 
+                ? `Invalid email or password. ${attemptResult.attemptsRemaining} attempts remaining.`
+                : "Invalid email or password"
             );
           }
+          
+          // Clear login attempts on successful password verification
+          await clearLoginAttempts(input.email);
 
           // Check if email is verified
           if (!user.emailVerified) {
