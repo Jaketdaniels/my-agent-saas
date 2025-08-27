@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getSessionFromCookie } from '@/utils/auth'
-import crypto from 'crypto'
 
 // Security lockdown configuration
 const SECURITY_LOCKDOWN = false // Master switch for security lockdown - DISABLED for production

@@ -75,7 +75,7 @@ export async function getKV() {
         console.log('[KV Session] Using getRequestContext for KV access');
         return context.env.NEXT_INC_CACHE_KV;
       }
-    } catch (e) {
+    } catch {
       console.log('[KV Session] getRequestContext failed, trying getCloudflareContext');
     }
     
@@ -86,7 +86,7 @@ export async function getKV() {
         console.log('[KV Session] Using getCloudflareContext for KV access');
         return env.NEXT_INC_CACHE_KV;
       }
-    } catch (e) {
+    } catch {
       console.log('[KV Session] Both context methods failed');
     }
     

@@ -2,7 +2,7 @@
  * Enhanced API client with silent retry philosophy
  */
 
-import { withRetry, RetryOptions, retryableFetch } from '@/lib/utils/retry';
+import { withRetry, RetryOptions } from '@/lib/utils/retry';
 
 export interface ApiClientOptions {
   baseUrl?: string;
@@ -28,7 +28,7 @@ export class ApiClient {
   /**
    * Make a GET request with automatic retry
    */
-  async get<T = any>(
+  async get<T = unknown>(
     path: string, 
     options?: RequestInit & { retry?: RetryOptions }
   ): Promise<T> {
@@ -38,9 +38,9 @@ export class ApiClient {
   /**
    * Make a POST request with automatic retry
    */
-  async post<T = any>(
+  async post<T = unknown>(
     path: string,
-    body?: any,
+    body?: unknown,
     options?: RequestInit & { retry?: RetryOptions }
   ): Promise<T> {
     return this.request<T>('POST', path, body, options);
@@ -49,9 +49,9 @@ export class ApiClient {
   /**
    * Make a PUT request with automatic retry
    */
-  async put<T = any>(
+  async put<T = unknown>(
     path: string,
-    body?: any,
+    body?: unknown,
     options?: RequestInit & { retry?: RetryOptions }
   ): Promise<T> {
     return this.request<T>('PUT', path, body, options);
@@ -60,7 +60,7 @@ export class ApiClient {
   /**
    * Make a DELETE request with automatic retry
    */
-  async delete<T = any>(
+  async delete<T = unknown>(
     path: string,
     options?: RequestInit & { retry?: RetryOptions }
   ): Promise<T> {
@@ -73,7 +73,7 @@ export class ApiClient {
   private async request<T>(
     method: string,
     path: string,
-    body?: any,
+    body?: unknown,
     options: RequestInit & { retry?: RetryOptions } = {}
   ): Promise<T> {
     const { retry, ...fetchOptions } = options;
@@ -106,10 +106,10 @@ export class ApiClient {
 
           const errorMessage = 
             (typeof errorBody === 'object' && errorBody && 'message' in errorBody ? 
-              (errorBody as any).message : null) || 
+              String((errorBody as Record<string, unknown>).message) : null) || 
             `HTTP ${response.status}: ${response.statusText}`;
           
-          const error: any = new Error(errorMessage);
+          const error = new Error(errorMessage) as Error & { status: number; body: unknown };
           error.status = response.status;
           error.body = errorBody;
           
@@ -122,18 +122,19 @@ export class ApiClient {
           return await response.json();
         }
         
-        return response as any;
+        return response as T;
       },
       {
         ...retryOptions,
         shouldRetry: (error, attempt) => {
           // Don't retry on authentication errors
-          if (error.status === 401 || error.status === 403) {
+          const err = error as { status?: number };
+          if (err.status === 401 || err.status === 403) {
             return false;
           }
 
           // Don't retry on client errors except rate limiting
-          if (error.status >= 400 && error.status < 500 && error.status !== 429) {
+          if (err.status && err.status >= 400 && err.status < 500 && err.status !== 429) {
             return false;
           }
 
@@ -148,7 +149,7 @@ export class ApiClient {
         onRetry: (error, attempt) => {
           console.log(
             `[API Client] Request failed (attempt ${attempt}/${retryOptions.maxRetries}):`,
-            { url, method, error: error.message }
+            { url, method, error: error instanceof Error ? error.message : String(error) }
           );
           
           // Call custom onRetry if provided
@@ -165,6 +166,3 @@ export const apiClient = new ApiClient({
     'x-client-version': '1.0.0'
   }
 });
-
-// Export retryable fetch for direct use
-export { retryableFetch } from '@/lib/utils/retry';

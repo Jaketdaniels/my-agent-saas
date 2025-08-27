@@ -7,7 +7,7 @@ export interface PerformanceMetric {
   duration: number;
   timestamp: number;
   requestId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 class PerformanceMonitor {
@@ -24,7 +24,7 @@ class PerformanceMonitor {
   /**
    * End measurement and record the metric
    */
-  end(name: string, metadata?: Record<string, any>): number {
+  end(name: string, metadata?: Record<string, unknown>): number {
     const startTime = this.timers.get(name);
     if (!startTime) {
       console.warn(`[Performance] No start time found for: ${name}`);
@@ -58,7 +58,7 @@ class PerformanceMonitor {
   async measure<T>(
     name: string,
     fn: () => Promise<T>,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): Promise<T> {
     this.start(name);
     try {
@@ -77,7 +77,7 @@ class PerformanceMonitor {
   measureSync<T>(
     name: string,
     fn: () => T,
-    metadata?: Record<string, any>
+    metadata?: Record<string, unknown>
   ): T {
     this.start(name);
     try {
@@ -177,7 +177,7 @@ export const performanceMonitor = new PerformanceMonitor();
  */
 export function measurePerformance(name: string) {
   const start = performance.now();
-  return (metadata?: Record<string, any>) => {
+  return (metadata?: Record<string, unknown>) => {
     const duration = performance.now() - start;
     console.log(`[PERF] ${name}: ${duration.toFixed(2)}ms`, metadata || '');
     
@@ -212,11 +212,11 @@ export function usePerformance(componentName: string) {
 /**
  * Decorator for measuring method performance (experimental)
  */
-export function measureMethod(target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+export function measureMethod(target: unknown, propertyKey: string, descriptor: PropertyDescriptor) {
   const originalMethod = descriptor.value;
 
-  descriptor.value = async function (...args: any[]) {
-    const className = target.constructor.name;
+  descriptor.value = async function (this: unknown, ...args: unknown[]) {
+    const className = (target as { constructor: { name: string } }).constructor.name;
     const methodName = `${className}.${propertyKey}`;
     
     return performanceMonitor.measure(

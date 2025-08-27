@@ -8,8 +8,8 @@ export interface RetryOptions {
   initialDelayMs?: number;
   maxDelayMs?: number;
   backoffMultiplier?: number;
-  shouldRetry?: (error: any, attempt: number) => boolean;
-  onRetry?: (error: any, attempt: number) => void;
+  shouldRetry?: (error: unknown, attempt: number) => boolean;
+  onRetry?: (error: unknown, attempt: number) => void;
 }
 
 const DEFAULT_OPTIONS: Required<Omit<RetryOptions, 'shouldRetry' | 'onRetry'>> = {
@@ -43,25 +43,26 @@ function calculateDelay(
 /**
  * Default retry predicate - retry on network and transient errors
  */
-function defaultShouldRetry(error: any): boolean {
+function defaultShouldRetry(error: unknown): boolean {
   // Retry on network errors
-  if (error.code === 'ECONNREFUSED' || 
-      error.code === 'ETIMEDOUT' || 
-      error.code === 'ENOTFOUND') {
+  const err = error as { code?: string; status?: number; message?: string };
+  if (err.code === 'ECONNREFUSED' || 
+      err.code === 'ETIMEDOUT' || 
+      err.code === 'ENOTFOUND') {
     return true;
   }
   
   // Retry on specific HTTP status codes
-  if (error.status === 429 || // Rate limited
-      error.status === 502 || // Bad gateway
-      error.status === 503 || // Service unavailable
-      error.status === 504) { // Gateway timeout
+  if (err.status === 429 || // Rate limited
+      err.status === 502 || // Bad gateway
+      err.status === 503 || // Service unavailable
+      err.status === 504) { // Gateway timeout
     return true;
   }
   
   // Retry on fetch failures
-  if (error.message?.includes('fetch failed') ||
-      error.message?.includes('network')) {
+  if (err.message?.includes('fetch failed') ||
+      err.message?.includes('network')) {
     return true;
   }
   
@@ -78,7 +79,7 @@ export async function withRetry<T>(
   const opts = { ...DEFAULT_OPTIONS, ...options };
   const shouldRetry = opts.shouldRetry || defaultShouldRetry;
   
-  let lastError: any;
+  let lastError: unknown;
   
   for (let attempt = 1; attempt <= opts.maxRetries; attempt++) {
     try {
@@ -126,7 +127,7 @@ export function withRetrySync<T>(
   const opts = { ...DEFAULT_OPTIONS, ...options };
   const shouldRetry = opts.shouldRetry || defaultShouldRetry;
   
-  let lastError: any;
+  let lastError: unknown;
   
   for (let attempt = 1; attempt <= opts.maxRetries; attempt++) {
     try {
@@ -201,7 +202,8 @@ export function createRetryableFetch(defaultOptions?: RetryOptions) {
           }
           
           // Don't retry on client errors (4xx)
-          if (error.status >= 400 && error.status < 500) {
+          const err = error as { status?: number };
+          if (err.status && err.status >= 400 && err.status < 500) {
             return false;
           }
           

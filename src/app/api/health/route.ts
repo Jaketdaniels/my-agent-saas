@@ -39,7 +39,7 @@ export async function GET(request: Request) {
   const dbStart = Date.now();
   try {
     const db = getDB();
-    const result = await db.run(sql`SELECT 1 as health`);
+    await db.run(sql`SELECT 1 as health`);
     health.checks.database = {
       status: true,
       latency: Date.now() - dbStart
@@ -94,7 +94,7 @@ export async function GET(request: Request) {
       status: true,
       limit: memoryLimit
     };
-  } catch (error) {
+  } catch {
     health.checks.memory = {
       status: false
     };
