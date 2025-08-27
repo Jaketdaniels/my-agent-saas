@@ -25,15 +25,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 23
-          cache: 'pnpm'
+          # Remove cache: 'pnpm' to avoid conflicts with manual caching
 
-      # Enhanced pnpm store caching with better key strategy
+      # Get pnpm store path before creating directories
       - name: Get pnpm store directory
         id: pnpm-cache
         shell: bash
         run: |
-          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
 
+      # Cache pnpm store
       - name: Cache pnpm store
         uses: actions/cache@v4
         with:
@@ -50,82 +51,27 @@ jobs:
           path: |
             node_modules
             .pnpm
-          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('package.json') }}
+          key: ${{ runner.os }}-node-modules-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
-            ${{ runner.os }}-node-modules-${{ hashFiles('**/pnpm-lock.yaml') }}-
             ${{ runner.os }}-node-modules-
 
-      # Cache Next.js build output with intelligent invalidation
+      # Cache Next.js build output
       - name: Cache Next.js build
         uses: actions/cache@v4
         with:
           path: |
             .next/cache
-            .next/server
-            .next/static
-          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx', '**/*.css') }}-${{ github.sha }}
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('src/**', 'public/**') }}
           restore-keys: |
-            ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx', '**/*.css') }}-
             ${{ runner.os }}-nextjs-${{ hashFiles('**/pnpm-lock.yaml') }}-
             ${{ runner.os }}-nextjs-
 
-      # Cache TypeScript build info for faster type checking
-      - name: Cache TypeScript build
-        uses: actions/cache@v4
-        with:
-          path: |
-            tsconfig.tsbuildinfo
-            **/*.tsbuildinfo
-          key: ${{ runner.os }}-typescript-${{ hashFiles('**/tsconfig.json', '**/tsconfig.*.json') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
-          restore-keys: |
-            ${{ runner.os }}-typescript-${{ hashFiles('**/tsconfig.json', '**/tsconfig.*.json') }}-
-            ${{ runner.os }}-typescript-
-
-      # Cache ESLint for faster linting
-      - name: Cache ESLint
-        uses: actions/cache@v4
-        with:
-          path: |
-            .eslintcache
-            node_modules/.cache/eslint
-          key: ${{ runner.os }}-eslint-${{ hashFiles('.eslintrc*', '**/.eslintrc*') }}-${{ hashFiles('**/*.js', '**/*.jsx', '**/*.ts', '**/*.tsx') }}
-          restore-keys: |
-            ${{ runner.os }}-eslint-${{ hashFiles('.eslintrc*', '**/.eslintrc*') }}-
-            ${{ runner.os }}-eslint-
-
-      # Cache Wrangler with better paths
-      - name: Cache Wrangler
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.wrangler
-            ~/.cache/wrangler
-            .wrangler
-            node_modules/.cache/wrangler
-          key: ${{ runner.os }}-wrangler-${{ hashFiles('wrangler.jsonc') }}-${{ hashFiles('**/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-wrangler-${{ hashFiles('wrangler.jsonc') }}-
-            ${{ runner.os }}-wrangler-
-
-      # Clean only if caches miss or on specific conditions
-      - name: Conditional cleanup
+      # Clean build artifacts but preserve caches
+      - name: Clean build artifacts
         run: |
-          # Only clean OpenNext artifacts - Next.js cache can be reused
           rm -rf .open-next
           rm -rf .vercel
-          
-          # Clean Next.js only if cache restoration failed
-          if [ ! -d ".next/cache" ]; then
-            echo "Next.js cache not found, cleaning build directory"
-            rm -rf .next
-          fi
-
-      - name: Create cache directories
-        run: |
-          mkdir -p ~/.wrangler
-          mkdir -p ~/.cache/wrangler
-          mkdir -p .wrangler
-          mkdir -p node_modules/.cache/wrangler
+          rm -rf dist
 
       - name: Install dependencies
         run: |
@@ -158,9 +104,10 @@ jobs:
       - name: Report cache status
         run: |
           echo "=== Cache Status Report ==="
-          echo "Node modules cache: ${{ steps.node-modules-cache.outputs.cache-hit == 'true' && 'HIT' || 'MISS' }}"
-          echo "Next.js directory size: $(du -sh .next 2>/dev/null | cut -f1 || echo 'Not found')"
-          echo "Node modules size: $(du -sh node_modules 2>/dev/null | cut -f1 || echo 'Not found')"
+          echo "Node modules cache: ${{ steps.node-modules-cache.outputs.cache-hit }}"
+          echo "pnpm store: $(du -sh ${{ steps.pnpm-cache.outputs.STORE_PATH }} 2>/dev/null | cut -f1 || echo 'Not found')"
+          echo "Node modules: $(du -sh node_modules 2>/dev/null | cut -f1 || echo 'Not found')"
+          echo "Next.js cache: $(du -sh .next/cache 2>/dev/null | cut -f1 || echo 'Not found')"
           echo "=========================="
 
       - name: Migrate local D1 database
@@ -216,8 +163,9 @@ jobs:
           echo "=== Deployment Summary ==="
           echo "Workflow run: ${{ github.run_number }}"
           echo "Commit: ${{ github.sha }}"
-          echo "Cache sizes:"
-          du -sh ~/.pnpm-store 2>/dev/null || echo "pnpm store: not found"
+          echo "Node modules cache hit: ${{ steps.node-modules-cache.outputs.cache-hit }}"
+          echo "Final sizes:"
           du -sh node_modules 2>/dev/null || echo "node_modules: not found"
           du -sh .next 2>/dev/null || echo ".next: not found"
+          du -sh .open-next 2>/dev/null || echo ".open-next: not found"
           echo "=========================="
