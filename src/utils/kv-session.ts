@@ -2,7 +2,7 @@ import "server-only";
 
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { headers } from "next/headers";
-import type { CloudflareEnv } from "@/types/cloudflare";
+import type { CloudflareEnv, KVNamespace } from "@/types/cloudflare";
 
 import { getUserFromDB, getUserTeamsWithPermissions } from "@/utils/auth";
 import { getIP } from "./get-IP";
@@ -68,47 +68,22 @@ export const CURRENT_SESSION_VERSION = 2;
 
 export async function getKV() {
   try {
-    // Use getCloudflareContext from @opennextjs/cloudflare
-    const context = getCloudflareContext();
-    
-    if (!context || !context.env) {
-      console.error('[KV Session] Failed to get Cloudflare context', {
-        hasContext: !!context,
-        hasEnv: !!context?.env,
-        nodeEnv: process.env.NODE_ENV
-      });
-      throw new Error("Cloudflare context not available");
+    const { env } = getCloudflareContext();
+    if (env?.NEXT_INC_CACHE_KV) {
+      return env.NEXT_INC_CACHE_KV;
     }
     
-    const env = context.env as CloudflareEnv;
-    
-    // Log available bindings for debugging
-    const bindings = {
-      hasKV: !!env.NEXT_INC_CACHE_KV,
-      hasD1: !!env.NEXT_TAG_CACHE_D1,
-      hasSandbox: !!env.Sandbox,
-      availableKeys: Object.keys(env).filter(k => !k.startsWith('EMAIL') && !k.includes('SECRET'))
-    };
-    
-    if (!env.NEXT_INC_CACHE_KV) {
-      console.error('[KV Session] KV namespace NEXT_INC_CACHE_KV not found', bindings);
-      throw new Error("KV namespace NEXT_INC_CACHE_KV not available - check wrangler.toml configuration");
+    // Try alternative KV bindings
+    const envWithKV = env as CloudflareEnv & { KV?: KVNamespace };
+    if (envWithKV?.KV) {
+      console.log('[KV Session] Found alternative KV binding');
+      return envWithKV.KV;
     }
-    
-    // Test KV connectivity
-    try {
-      await env.NEXT_INC_CACHE_KV.list({ limit: 1 });
-      console.log('[KV Session] KV namespace connected successfully');
-    } catch (testError) {
-      console.error('[KV Session] KV namespace exists but failed connectivity test:', testError);
-      throw new Error("KV namespace exists but is not accessible");
-    }
-    
-    return env.NEXT_INC_CACHE_KV;
-  } catch (error) {
-    console.error('[KV Session] Error accessing KV store:', error);
-    throw new Error(`Can't connect to KV store: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  } catch (e) {
+    console.log('getCloudflareContext failed:', e);
   }
+  
+  throw new Error('KV not available');
 }
 
 export interface CreateKVSessionParams extends Omit<KVSession, "id" | "createdAt" | "expiresAt"> {

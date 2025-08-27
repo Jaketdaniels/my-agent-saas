@@ -21,11 +21,11 @@ export interface CloudflareRequestContext {
 // Durable Object binding type helpers
 export type SandboxNamespace = DurableObjectNamespace;
 
-// KV Namespace type helpers  
-export type KVNamespace = KVNamespace;
+// KV Namespace type helpers - imported from workers-types
+export type { KVNamespace } from '@cloudflare/workers-types';
 
-// D1 Database type helpers
-export type D1Database = D1Database;
+// D1 Database type helpers - imported from workers-types
+export type { D1Database } from '@cloudflare/workers-types';
 
 // Request context helper for Next.js routes
 export interface NextCloudflareContext {

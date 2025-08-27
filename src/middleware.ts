@@ -4,7 +4,7 @@ import { getSessionFromCookie } from '@/utils/auth'
 
 // Security lockdown configuration
 const SECURITY_LOCKDOWN = false // Master switch for security lockdown - DISABLED for production
-const ADMIN_ACCESS_TOKEN = process.env.ADMIN_ACCESS_TOKEN || 'temporary-dev-token' // Emergency admin access token - MUST be set in environment
+const ADMIN_ACCESS_TOKEN = process.env.ADMIN_ACCESS_TOKEN // Emergency admin access token - MUST be set in environment
 
 // Routes that are always allowed (even during lockdown)
 const ALWAYS_ALLOWED = [
@@ -72,8 +72,10 @@ export async function middleware(request: NextRequest) {
     // Check for emergency admin access token
     const emergencyToken = url.searchParams.get('admin_token')
     const cookieToken = request.cookies.get('admin_token_temp')?.value
-    const hasValidToken = (emergencyToken && emergencyToken === ADMIN_ACCESS_TOKEN) || 
+    const hasValidToken = ADMIN_ACCESS_TOKEN && (
+                         (emergencyToken && emergencyToken === ADMIN_ACCESS_TOKEN) || 
                          (cookieToken && cookieToken === ADMIN_ACCESS_TOKEN)
+                         )
     
     if (hasValidToken) {
       // Allow auth routes for admin sign-in with token
