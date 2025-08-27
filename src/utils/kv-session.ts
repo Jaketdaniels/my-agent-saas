@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getRequestContext } from '@cloudflare/next-on-pages';
 import { headers } from "next/headers";
 
 import { getUserFromDB, getUserTeamsWithPermissions } from "@/utils/auth";
@@ -67,17 +68,30 @@ export const CURRENT_SESSION_VERSION = 2;
 
 export async function getKV() {
   try {
-    const { env } = getCloudflareContext();
-    
-    if (!env || !env.NEXT_INC_CACHE_KV) {
-      console.error('[KV Session] Failed to get KV namespace from Cloudflare context', { 
-        hasEnv: !!env,
-        hasKV: !!(env?.NEXT_INC_CACHE_KV)
-      });
-      throw new Error("KV namespace not available in Cloudflare context");
+    // Try new context method first (recommended for OpenNext)
+    try {
+      const context = getRequestContext();
+      if (context?.env?.NEXT_INC_CACHE_KV) {
+        console.log('[KV Session] Using getRequestContext for KV access');
+        return context.env.NEXT_INC_CACHE_KV;
+      }
+    } catch (e) {
+      console.log('[KV Session] getRequestContext failed, trying getCloudflareContext');
     }
     
-    return env.NEXT_INC_CACHE_KV;
+    // Fallback to old method
+    try {
+      const { env } = getCloudflareContext();
+      if (env?.NEXT_INC_CACHE_KV) {
+        console.log('[KV Session] Using getCloudflareContext for KV access');
+        return env.NEXT_INC_CACHE_KV;
+      }
+    } catch (e) {
+      console.log('[KV Session] Both context methods failed');
+    }
+    
+    console.error('[KV Session] Failed to get KV namespace from any context method');
+    throw new Error("KV namespace not available - check Cloudflare bindings configuration");
   } catch (error) {
     console.error('[KV Session] Error accessing KV store:', error);
     throw new Error("Can't connect to KV store - ensure Cloudflare bindings are properly configured");

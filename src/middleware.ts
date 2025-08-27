@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { getSessionFromCookie } from '@/utils/auth'
+import crypto from 'crypto'
 
 // Security lockdown configuration
-const SECURITY_LOCKDOWN = true // Master switch for security lockdown
-const ADMIN_ACCESS_TOKEN = process.env.ADMIN_ACCESS_TOKEN || 'netm8-admin-2025' // Emergency admin access token
+const SECURITY_LOCKDOWN = false // Master switch for security lockdown - DISABLED for production
+const ADMIN_ACCESS_TOKEN = process.env.ADMIN_ACCESS_TOKEN // Emergency admin access token - MUST be set in environment
 
 // Routes that are always allowed (even during lockdown)
 const ALWAYS_ALLOWED = [
@@ -33,9 +34,19 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   const url = request.nextUrl
   
-  // Allow static assets always
+  // Generate unique request ID for tracing
+  const requestId = crypto.randomUUID()
+  request.headers.set('x-request-id', requestId)
+  
+  // Allow static assets always with aggressive caching
   if (STATIC_ASSETS.some(path => pathname.startsWith(path))) {
-    return NextResponse.next()
+    const response = NextResponse.next()
+    // Add infinite cache for versioned assets
+    if (pathname.includes('_next/static')) {
+      response.headers.set('Cache-Control', 'public, max-age=31536000, immutable')
+      response.headers.set('CDN-Cache-Control', 'max-age=31536000')
+    }
+    return response
   }
   
   // Security lockdown mode - redirect everything to coming soon except allowed paths
@@ -133,7 +144,24 @@ export async function middleware(request: NextRequest) {
     }
   }
   
-  return NextResponse.next()
+  // Add cache headers for GET requests to API routes
+  const response = NextResponse.next()
+  
+  // Add request ID to response
+  response.headers.set('x-request-id', requestId)
+  
+  // Cache strategy for different route types
+  if (request.method === 'GET') {
+    if (pathname.startsWith('/api/') && !pathname.includes('/auth')) {
+      // API routes - short cache with stale-while-revalidate
+      response.headers.set('Cache-Control', 'public, s-maxage=10, stale-while-revalidate=59')
+    } else if (pathname.endsWith('.json') || pathname.endsWith('.xml')) {
+      // JSON/XML data - moderate cache
+      response.headers.set('Cache-Control', 'public, max-age=3600, stale-while-revalidate=86400')
+    }
+  }
+  
+  return response
 }
 
 export const config = {

@@ -27,7 +27,7 @@ export const getSessionsAction = createServerAction()
 
         const sessionIds = await getAllSessionIdsOfUser(session.user.id);
         const sessions = await Promise.all(
-          sessionIds.map(async ({ key, absoluteExpiration }) => {
+          sessionIds.map(async ({ key, absoluteExpiration }: { key: string; absoluteExpiration: Date | undefined }) => {
             const sessionId = key.split(":")[2]; // Format is "session:userId:sessionId"
             const sessionData = await getKVSession(sessionId, session.user.id);
             if (!sessionData) return null;
@@ -68,7 +68,7 @@ export const getSessionsAction = createServerAction()
         // Filter out any null sessions and sort by creation date
         return sessions
           .filter(isValidSession)
-          .sort((a, b) => b.createdAt - a.createdAt);
+          .sort((a: SessionWithMeta, b: SessionWithMeta) => b.createdAt - a.createdAt);
       },
       RATE_LIMITS.SETTINGS
     );
