@@ -65,9 +65,18 @@ jobs:
           path: |
             ~/.wrangler
             ~/.cache/wrangler
+            .wrangler
+            node_modules/.cache/wrangler
           key: ${{ runner.os }}-wrangler-${{ hashFiles('wrangler.jsonc') }}
           restore-keys: |
             ${{ runner.os }}-wrangler-
+
+      - name: Create cache directories
+        run: |
+          mkdir -p ~/.wrangler
+          mkdir -p ~/.cache/wrangler
+          mkdir -p .wrangler
+          mkdir -p node_modules/.cache/wrangler
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile --prefer-offline
