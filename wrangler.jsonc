@@ -37,7 +37,8 @@
   "durable_objects": {
     "bindings": [
       { "name": "NEXT_CACHE_DO_QUEUE", "class_name": "DOQueueHandler" },
-      { "name": "Sandbox", "class_name": "Sandbox" }
+      { "name": "Sandbox", "class_name": "Sandbox" },
+      { "name": "WEBSOCKET_DO", "class_name": "WebSocketDO" }
     ]
   },
 
@@ -45,6 +46,10 @@
     {
       "tag": "v1",
       "new_sqlite_classes": ["DOQueueHandler", "Sandbox"]
+    },
+    {
+      "tag": "v2",
+      "new_classes": ["WebSocketDO"]
     }
   ],
 
@@ -79,7 +84,8 @@
       "durable_objects": {
         "bindings": [
           { "name": "NEXT_CACHE_DO_QUEUE", "class_name": "DOQueueHandler" },
-          { "name": "Sandbox", "class_name": "Sandbox" }
+          { "name": "Sandbox", "class_name": "Sandbox" },
+          { "name": "WEBSOCKET_DO", "class_name": "WebSocketDO" }
         ]
       },
       "d1_databases": [

@@ -3,6 +3,11 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { requireApiAuth } from "@/lib/auth";
 import { agentInterpretSchema } from "@/schemas/agent-interpret.schema";
 import { z } from "zod";
+import { getDB } from "@/db";
+import { userTable, creditTransactionTable, CREDIT_TRANSACTION_TYPE } from "@/db/schema";
+import { eq, sql } from "drizzle-orm";
+
+const AGENT_EXECUTION_COST = 1; // Credits per execution
 
 export async function POST(request: NextRequest) {
   try {
@@ -43,6 +48,68 @@ export async function POST(request: NextRequest) {
 
     const { message, code, language } = validatedData;
     console.log("[API Interpret] Processing:", { message: message?.substring(0, 50), language });
+
+    // Check and deduct credits before execution
+    const db = getDB();
+    
+    // Start transaction to atomically check and deduct credits
+    const userId = session.user.id;
+    
+    // Get user's current credits
+    const user = await db
+      .select({ currentCredits: userTable.currentCredits })
+      .from(userTable)
+      .where(eq(userTable.id, userId))
+      .get();
+    
+    if (!user) {
+      return NextResponse.json(
+        {
+          result: "",
+          success: false,
+          error: "User not found",
+        } as import("@/types/agent").AgentInterpretResponse,
+        { status: 404 }
+      );
+    }
+    
+    // Check if user has enough credits
+    if (user.currentCredits < AGENT_EXECUTION_COST) {
+      console.log("[API Interpret] Insufficient credits:", user.currentCredits, "needed:", AGENT_EXECUTION_COST);
+      return NextResponse.json(
+        {
+          result: "",
+          success: false,
+          error: `Insufficient credits. You have ${user.currentCredits} credits, but need ${AGENT_EXECUTION_COST} credits to execute code.`,
+        } as import("@/types/agent").AgentInterpretResponse,
+        { status: 402 } // Payment Required
+      );
+    }
+    
+    // Deduct credits
+    console.log("[API Interpret] Deducting", AGENT_EXECUTION_COST, "credits from user");
+    await db
+      .update(userTable)
+      .set({ 
+        currentCredits: sql`${userTable.currentCredits} - ${AGENT_EXECUTION_COST}`,
+        updatedAt: new Date()
+      })
+      .where(eq(userTable.id, userId))
+      .run();
+    
+    // Record the credit transaction
+    await db
+      .insert(creditTransactionTable)
+      .values({
+        userId,
+        amount: -AGENT_EXECUTION_COST, // Negative for usage
+        remainingAmount: 0,
+        type: CREDIT_TRANSACTION_TYPE.USAGE,
+        description: `Agent code execution (${language})`,
+      })
+      .run();
+    
+    console.log("[API Interpret] Credits deducted successfully");
 
     // Check if Sandbox binding exists
     const envAny = env as unknown as { Sandbox?: unknown };

@@ -149,100 +149,230 @@ export function ChatInterface() {
     setInput("");
     setIsLoading(true);
 
-    try {
-      console.log("[AgentChat] Sending message to API:", input);
-      
-      const response = await fetch("/api/agent/interpret", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: input,
-          code: input, // For code execution
-          language: "python",
-        }),
-      });
+    // Check if the message contains code blocks for streaming execution
+    const isCodeExecution = input.includes("```") || input.toLowerCase().includes("run") || input.toLowerCase().includes("execute");
+    
+    if (isCodeExecution) {
+      // Use streaming endpoint for code execution
+      try {
+        console.log("[AgentChat] Using streaming endpoint for code execution");
+        
+        const response = await fetch("/api/agent/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: input,
+            code: input.replace(/```[a-z]*\n?/g, "").replace(/```/g, ""), // Extract code from markdown
+            language: "python",
+          }),
+        });
 
-      console.log("[AgentChat] Response status:", response.status);
+        if (!response.ok) {
+          throw new Error(`Stream API returned ${response.status}`);
+        }
 
-      if (!response.ok) {
-        const errorData = await response.text();
-        console.error("[AgentChat] API error response:", errorData);
-        throw new Error(`API returned ${response.status}: ${errorData}`);
-      }
+        // Create assistant message that will be updated with streaming content
+        const assistantMessageId = (Date.now() + 1).toString();
+        const assistantMessage: Message = {
+          id: assistantMessageId,
+          role: Role.Assistant,
+          content: "",
+          timestamp: new Date(),
+          outputs: [],
+        };
+        
+        setMessages((prev) => [...prev, assistantMessage]);
 
-      const data = await response.json() as { result?: string; outputs?: unknown[]; error?: string; success?: boolean };
-      console.log("[AgentChat] API response data:", data);
+        // Process the stream
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let outputContent = "";
 
-      // Check if there was an error in execution
-      if (data.error) {
+        if (reader) {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+              if (line.startsWith("data: ")) {
+                try {
+                  const data = JSON.parse(line.slice(6));
+                  
+                  if (data.type === "output" || data.type === "error_output") {
+                    outputContent += data.content;
+                    // Update the message with accumulated output
+                    setMessages((prev) => 
+                      prev.map((msg) => 
+                        msg.id === assistantMessageId 
+                          ? { 
+                              ...msg, 
+                              content: outputContent,
+                              outputs: [{
+                                type: OutputType.Text,
+                                data: outputContent
+                              }]
+                            }
+                          : msg
+                      )
+                    );
+                  } else if (data.type === "result") {
+                    // Final result
+                    setMessages((prev) => 
+                      prev.map((msg) => 
+                        msg.id === assistantMessageId 
+                          ? { 
+                              ...msg, 
+                              content: outputContent || data.content || "Execution completed",
+                              outputs: [{
+                                type: OutputType.Text,
+                                data: outputContent || data.content
+                              }]
+                            }
+                          : msg
+                      )
+                    );
+                  } else if (data.type === "error") {
+                    toast.error("Execution error: " + data.message);
+                    setMessages((prev) => 
+                      prev.map((msg) => 
+                        msg.id === assistantMessageId 
+                          ? { ...msg, content: `Error: ${data.message}` }
+                          : msg
+                      )
+                    );
+                  } else if (data.type === "status") {
+                    // Show status updates
+                    setMessages((prev) => 
+                      prev.map((msg) => 
+                        msg.id === assistantMessageId 
+                          ? { ...msg, content: data.message }
+                          : msg
+                      )
+                    );
+                  }
+                } catch (e) {
+                  console.error("Failed to parse SSE data:", e);
+                }
+              }
+            }
+          }
+        }
+
+        toast.success("Code executed successfully");
+      } catch (error) {
+        console.error("[AgentChat] Streaming error:", error);
         const errorMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: Role.Assistant,
-          content: `Error: ${data.error}`,
+          content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}`,
           timestamp: new Date(),
           outputs: [],
         };
         setMessages((prev) => [...prev, errorMessage]);
-        toast.error("Code execution failed");
-        return;
+        toast.error("Failed to execute code");
       }
+    } else {
+      // Use regular interpret endpoint for non-code messages
+      try {
+        console.log("[AgentChat] Sending message to interpret API:", input);
+        
+        const response = await fetch("/api/agent/interpret", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: input,
+            code: input,
+            language: "python",
+          }),
+        });
 
-      // Transform outputs to match Output type if they exist
-      const transformedOutputs: Output[] = Array.isArray(data.outputs)
-        ? data.outputs.map((output: unknown, index: number): Output => {
-            if (output && typeof output === "object") {
-              const outputObj = output as InterpreterOutput;
-              const image = getImageParts(outputObj);
-              if (image) {
+        console.log("[AgentChat] Response status:", response.status);
+
+        if (!response.ok) {
+          const errorData = await response.text();
+          console.error("[AgentChat] API error response:", errorData);
+          throw new Error(`API returned ${response.status}: ${errorData}`);
+        }
+
+        const data = await response.json() as { result?: string; outputs?: unknown[]; error?: string; success?: boolean };
+        console.log("[AgentChat] API response data:", data);
+
+        // Check if there was an error in execution
+        if (data.error) {
+          const errorMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            role: Role.Assistant,
+            content: `Error: ${data.error}`,
+            timestamp: new Date(),
+            outputs: [],
+          };
+          setMessages((prev) => [...prev, errorMessage]);
+          toast.error("Code execution failed");
+          return;
+        }
+
+        // Transform outputs to match Output type if they exist
+        const transformedOutputs: Output[] = Array.isArray(data.outputs)
+          ? data.outputs.map((output: unknown, index: number): Output => {
+              if (output && typeof output === "object") {
+                const outputObj = output as InterpreterOutput;
+                const image = getImageParts(outputObj);
+                if (image) {
+                  return {
+                    id: `output-${index}`,
+                    type: OutputType.Image,
+                    data: `data:image/${image.format};base64,${image.data}`,
+                  };
+                }
                 return {
                   id: `output-${index}`,
-                  type: OutputType.Image,
-                  data: `data:image/${image.format};base64,${image.data}`,
+                  type: OutputType.Text,
+                  data: getTextOutput(outputObj, output),
                 };
               }
               return {
                 id: `output-${index}`,
                 type: OutputType.Text,
-                data: getTextOutput(outputObj, output),
+                data: String(output),
               };
-            }
-            return {
-              id: `output-${index}`,
-              type: OutputType.Text,
-              data: String(output),
-            };
-          })
-        : [];
+            })
+          : [];
 
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: Role.Assistant,
-        content: data.result || "Command executed successfully",
-        timestamp: new Date(),
-        outputs: transformedOutputs,
-      };
+        const assistantMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: Role.Assistant,
+          content: data.result || "Command executed successfully",
+          timestamp: new Date(),
+          outputs: transformedOutputs,
+        };
 
-      setMessages((prev) => [...prev, assistantMessage]);
-      
-      if (data.success !== false) {
-        toast.success("Message sent successfully");
+        setMessages((prev) => [...prev, assistantMessage]);
+        
+        if (data.success !== false) {
+          toast.success("Message sent successfully");
+        }
+      } catch (error) {
+        console.error("[AgentChat] Error:", error);
+        
+        const errorMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          role: Role.Assistant,
+          content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          timestamp: new Date(),
+          outputs: [],
+        };
+        
+        setMessages((prev) => [...prev, errorMessage]);
+        toast.error(error instanceof Error ? error.message : "Failed to send message");
       }
-    } catch (error) {
-      console.error("[AgentChat] Error:", error);
-      
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: Role.Assistant,
-        content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        timestamp: new Date(),
-        outputs: [],
-      };
-      
-      setMessages((prev) => [...prev, errorMessage]);
-      toast.error(error instanceof Error ? error.message : "Failed to send message");
-    } finally {
-      setIsLoading(false);
     }
+    
+    setIsLoading(false);
   };
 
   return (
